@@ -126,8 +126,7 @@ ISR(PCINT0_vect) {
   static unsigned char rotary_state = 0;
 
   rotary_state <<= 2;
-  /* TODO: Replace digitalReads */
-  rotary_state |= (digitalRead(8) | (digitalRead(7) << 1));
+  rotary_state |= (((PINB >> PINB0) & 1) | (((PIND >> PIND7) & 1) << 1));
   rotary_state &= 0x0F;
 
   if (rotary_state == 0x09) {
