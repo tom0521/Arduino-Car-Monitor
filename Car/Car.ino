@@ -18,11 +18,6 @@
 #define D6 18
 #define D7 19
 
-/* SPI pin definitions */
-#define SCK  PB5  // Serial Clock
-#define MISO PB4  // Master-In-Slave-Out
-#define MOSI PB3  // Master-Out-Slave-In
-
 /* byte of flags needed for this project */
 uint8_t flags = 0;  // (R_FLAG)(B_FLAG)(G_FLAG)(CAN_FLAG)
 volatile int encoder = 0;
@@ -45,7 +40,7 @@ LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
  */
 void setup() {
   // Start serial connection for debugging
-  // Serial.begin(9600);
+  Serial.begin(9600);
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*       Rotary Encoder Button setup       */
@@ -102,26 +97,65 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
+  // Set all chip selects HIGH and as output
+  SET(MCP_CS);
+  // Set the MCP2515 Chip Select pin as output
+  SET_OUTPUT(MCP_CS);
+
   // Set MOSI and SCK as outputs
   // PORTB |= (1 << MOSI) | (1 << SCK);
   SET_OUTPUT(P_MOSI);
   SET_OUTPUT(P_SCK);
+
   // Set MISO as input
   // PORTB &= ~(1 << MISO);
   SET_INPUT(P_MISO);
   // Enable SPI, Master, set clock rate fck/16
-  SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0);
+  SPCR = (1 << SPE) | (1 << MSTR) | (0 << SPR1) | (1 << SPR0);
+  SPSR = 0;
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
+  // Set up MCP2515 interrupt
+  SET_INPUT(MCP_INT);
+  SET(MCP_INT);
+
+  // Reset MCP2515
+  RESET(MCP_CS);
+  spi_transmit(0xC0);   // RESET instruciton
+  SET(MCP_CS);
+
+  _delay_us(10);
+
   // Initialize the CAN-BUS, printing a message upon failure
+  RESET(MCP_CS);
+  spi_transmit(0x02);   // Transmit WRITE instruction
+  spi_transmit(0x28);   // Start on CNF3 Register
+  spi_transmit(0x02);   // Set PS2 length = (2 + 1) * Tq
+                        // Move to CNF2 Register
+  spi_transmit((1 << 7) | (1 << 4));  // BTLMODE 1 (PS2 len determined by CNF3) and PS1 length = (2 + 1) *Tq
+                        // Move to CNF1 Register
+  spi_transmit(0x01);   // Set the baud rate prescaler to 1 (Tq = 2 * (baud_rate + 1)/Fosc )
+                        // Move to CANINTE Register
+  spi_transmit(0x03);   // activate interrupts
+  SET(MCP_CS);
 
   // On successful initialization, check the available PIDs
+  uint8_t data;
+  RESET(MCP_CS);
+  spi_transmit(0x03);   // READ instruction
+  spi_transmit(0x2A);   // CNF1 Register
+  data = spi_transmit(0x00);
+  SET(MCP_CS);
+
+  if (data != 0x01) {
+    Serial.println("Failed");
+  } else {
+    Serial.println("Success");
+  }
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
-
-
   
   // Turn on global interrupts
   sei();
@@ -144,15 +178,19 @@ void loop() {
  * SPI transmit function
  * 
  * Will send the given byte of data over
- * the Serial Parallel Interface
+ * the Serial Parallel Interface and return
+ * the byte received, if any
  * 
  */
-void spi_transmit(uint8_t data) {
+uint8_t spi_transmit(uint8_t data) {
   // Start transmitting data to slave
   SPDR = data;
 
   // Wait for transmission to complete
-  while (!(SPSR & (1 << SPIF))) ;
+  while (!(SPSR & (1 << SPIF)))
+    ;
+
+  return SPDR;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */

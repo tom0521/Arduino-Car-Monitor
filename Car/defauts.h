@@ -24,4 +24,7 @@
 #define P_MISO  B,4     // Pin 12
 #define P_SCK   B,5     // Pin 13
 
+/* MCP2515 interrupt */
+#define MCP_INT D,2     // Pin 2
+
 #endif // DEFAULTS_H
