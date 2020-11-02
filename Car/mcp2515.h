@@ -2,34 +2,34 @@
 #define MCP2515_J
 
 /* Instructions */
-#define MCP_RESET           0xC0    // 1100 0000
-#define MCP_READ            0x03    // 0000 0011
-#define MCP_READ_RX         0x90    // 1001 0nm0
-#define MCP_WRITE           0x02    // 0000 0010
-#define MCP_LOAD_TX         0x40    // 0100 0abc
-#define MCP_RTS             0x80    // 1000 0nnn
-#define MCP_READ_STATUS     0xA0    // 1010 0000
-#define MCP_RX_STATUS       0xB0    // 1011 0000
-#define MCP_BIT_MODIFY      0x05    // 0000 0101
+#define MCP_RESET           0xC0    // Reinitialize the internal registers and set the configuration mode
+#define MCP_READ            0x03    // Read instruction
+#define MCP_READ_RX         0x90    // Quicky address and receive buffer for reading
+#define MCP_WRITE           0x02    // Write instruction
+#define MCP_LOAD_TX         0x40    // Quicky write to a transmit buffer
+#define MCP_RTS             0x80    // Initiate message transmission for one or more of the transmit buffers
+#define MCP_READ_STATUS     0xA0    // Allows single instruction action to some of the often used status bits
+#define MCP_RX_STATUS       0xB0    // Quicky determine which filter matched the message and maessage type
+#define MCP_BIT_MODIFY      0x05    // Setting or clearing individual bits in specific status and control registers
 
 /* Control Register Addresses */
-#define BFPCTRL     0x0C
-#define TXRTSCTRL   0x0D
-#define CANSTAT     0xE
-#define CANCTRL     0xF
-#define TEC         0x1C
-#define REC         0x1D
-#define CNF3        0x28
-#define CNF2        0x29
-#define CNF1        0x2A
-#define CANINTE     0x2B
-#define CANINTF     0x2C
-#define EFLG        0x2D
-#define TXB0CTRL    0x30
-#define TXB1CTRL    0x40
-#define TXB2CTRL    0x50
-#define RXB0CTRL    0x60
-#define RXB1CTRL    0x70
+#define BFPCTRL     0x0C        // RXnBF Pin Control and Status Register
+#define TXRTSCTRL   0x0D        // TXnRTS Pin Control and Status Register
+#define CANSTAT     0xE         // CAN Status Register
+#define CANCTRL     0xF         // CAM Control Register
+#define TEC         0x1C        // Transmit Error Counter Register
+#define REC         0x1D        // Receive Error Counter Register
+#define CNF3        0x28        // Configuration Register 3
+#define CNF2        0x29        // Configuration Register 2
+#define CNF1        0x2A        // Configuration Register 1
+#define CANINTE     0x2B        // CAN Interrupt Enable Register
+#define CANINTF     0x2C        // CAN Interrupt Flag Register
+#define EFLG        0x2D        // Error Flag Register
+#define TXB0CTRL    0x30        // Transmit Buffer 0 Control Register
+#define TXB1CTRL    0x40        // Transmit Buffer 1 Control Register
+#define TXB2CTRL    0x50        // Transmit Buffer 2 Control Register
+#define RXB0CTRL    0x60        // Receive Buffer 0 Control Register
+#define RXB1CTRL    0x70        // Reveive Buffer 1 Control Register
 
 /* BFCTRL */
 #define B0BFM       0

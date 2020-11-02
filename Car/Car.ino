@@ -8,6 +8,7 @@
 // TODO: remove
 #include "defauts.h"
 #include "register.h"
+#include "mcp2515.h"
 #include <LiquidCrystal.h>
 
 /* LCD pin definitions */
@@ -123,29 +124,29 @@ void setup() {
 
   // Reset MCP2515
   RESET(MCP_CS);
-  spi_transmit(0xC0);   // RESET instruciton
+  spi_transmit(MCP_RESET);   // RESET instruciton
   SET(MCP_CS);
 
   _delay_us(10);
 
   // Initialize the CAN-BUS, printing a message upon failure
   RESET(MCP_CS);
-  spi_transmit(0x02);   // Transmit WRITE instruction
-  spi_transmit(0x28);   // Start on CNF3 Register
-  spi_transmit(0x02);   // Set PS2 length = (2 + 1) * Tq
+  spi_transmit(MCP_WRITE);   // Transmit WRITE instruction
+  spi_transmit(CNF3);   // Start on CNF3 Register
+  spi_transmit(1 << PHSEG21);   // Set PS2 length = (2 + 1) * Tq
                         // Move to CNF2 Register
-  spi_transmit((1 << 7) | (1 << 4));  // BTLMODE 1 (PS2 len determined by CNF3) and PS1 length = (2 + 1) *Tq
+  spi_transmit((1 << BTLMODE) | (1 << PHSEG11));  // BTLMODE 1 (PS2 len determined by CNF3) and PS1 length = (2 + 1) *Tq
                         // Move to CNF1 Register
   spi_transmit(0x01);   // Set the baud rate prescaler to 1 (Tq = 2 * (baud_rate + 1)/Fosc )
                         // Move to CANINTE Register
-  spi_transmit(0x03);   // activate interrupts
+  spi_transmit((1 << RX0IE) | (1 << RX1IE));   // activate interrupts
   SET(MCP_CS);
 
   // On successful initialization, check the available PIDs
   uint8_t data;
   RESET(MCP_CS);
-  spi_transmit(0x03);   // READ instruction
-  spi_transmit(0x2A);   // CNF1 Register
+  spi_transmit(MCP_READ);   // READ instruction
+  spi_transmit(CNF1);   // CNF1 Register
   data = spi_transmit(0x00);
   SET(MCP_CS);
 
