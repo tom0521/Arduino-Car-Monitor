@@ -138,4 +138,18 @@
 #define RXM0        5
 #define RXM1        6
 
-#endif
+/* * * * * * * * * * * * * * * */
+/*                             */
+/*    Function Definitions     */
+/*                             */
+/* * * * * * * * * * * * * * * */
+
+bool mcp_init (uint8_t baud_prescaler);
+
+uint8_t mcp_read (uint8_t addr);
+
+void mcp_write (uint8_t addr, uint8_t data);
+
+void mcp_bit_modify (uint8_t addr, uint8_t mask, uint8_t data);
+
+#endif  // MCP2515_H

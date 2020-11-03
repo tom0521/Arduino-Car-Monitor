@@ -9,6 +9,7 @@
 #include "defauts.h"
 #include "register.h"
 #include "mcp2515.h"
+#include "spi.h"
 #include <LiquidCrystal.h>
 
 /* LCD pin definitions */
@@ -22,6 +23,7 @@
 /* byte of flags needed for this project */
 uint8_t flags = 0;  // (R_FLAG)(B_FLAG)(G_FLAG)(CAN_FLAG)
 volatile int encoder = 0;
+volatile uint8_t rotary_state = 0;
 
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 
@@ -60,15 +62,11 @@ void setup() {
   /*        Rotary Encoder A & B setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
   // Set the rotary encoder A pin to be input with the pull up resistor
-  // DDRD &= ~(1 << A);
   SET_INPUT(P_A);
-  // PORTD |= (1 << A);
   SET(P_A);
 
   // Set the rotary encoder B pin to be input with the pull up resistor
-  // DDRB &= ~(1 << B);
   SET_INPUT(P_B);
-  // PORTB |= (1 << B);
   SET(P_B);
 
   // Eable interrupts on the rotary encoder A pin
@@ -94,63 +92,18 @@ void setup() {
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
   lcd.begin(20,4);
-
+  
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Set all chip selects HIGH and as output
-  SET(MCP_CS);
-  // Set the MCP2515 Chip Select pin as output
-  SET_OUTPUT(MCP_CS);
-
-  // Set MOSI and SCK as outputs
-  // PORTB |= (1 << MOSI) | (1 << SCK);
-  SET_OUTPUT(P_MOSI);
-  SET_OUTPUT(P_SCK);
-
-  // Set MISO as input
-  // PORTB &= ~(1 << MISO);
-  SET_INPUT(P_MISO);
-  // Enable SPI, Master, set clock rate fck/16
-  SPCR = (1 << SPE) | (1 << MSTR) | (0 << SPR1) | (1 << SPR0);
-  SPSR = 0;
+  // Initialize SPI
+  spi_init();
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Set up MCP2515 interrupt
-  SET_INPUT(MCP_INT);
-  SET(MCP_INT);
-
-  // Reset MCP2515
-  RESET(MCP_CS);
-  spi_transmit(MCP_RESET);   // RESET instruciton
-  SET(MCP_CS);
-
-  _delay_us(10);
-
-  // Initialize the CAN-BUS, printing a message upon failure
-  RESET(MCP_CS);
-  spi_transmit(MCP_WRITE);   // Transmit WRITE instruction
-  spi_transmit(CNF3);   // Start on CNF3 Register
-  spi_transmit(1 << PHSEG21);   // Set PS2 length = (2 + 1) * Tq
-                        // Move to CNF2 Register
-  spi_transmit((1 << BTLMODE) | (1 << PHSEG11));  // BTLMODE 1 (PS2 len determined by CNF3) and PS1 length = (2 + 1) *Tq
-                        // Move to CNF1 Register
-  spi_transmit(0x01);   // Set the baud rate prescaler to 1 (Tq = 2 * (baud_rate + 1)/Fosc )
-                        // Move to CANINTE Register
-  spi_transmit((1 << RX0IE) | (1 << RX1IE));   // activate interrupts
-  SET(MCP_CS);
-
-  // On successful initialization, check the available PIDs
-  uint8_t data;
-  RESET(MCP_CS);
-  spi_transmit(MCP_READ);   // READ instruction
-  spi_transmit(CNF1);   // CNF1 Register
-  data = spi_transmit(0x00);
-  SET(MCP_CS);
-
-  if (data != 0x01) {
+  // Initialize CAN-BUS communication
+  if (!mcp_init(0x01)) {
     Serial.println("Failed");
   } else {
     Serial.println("Success");
@@ -173,25 +126,6 @@ void loop() {
   lcd.setCursor(0,0);
   lcd.print(encoder);
   // Serial.println(encoder);
-}
-
-/**
- * SPI transmit function
- * 
- * Will send the given byte of data over
- * the Serial Parallel Interface and return
- * the byte received, if any
- * 
- */
-uint8_t spi_transmit(uint8_t data) {
-  // Start transmitting data to slave
-  SPDR = data;
-
-  // Wait for transmission to complete
-  while (!(SPSR & (1 << SPIF)))
-    ;
-
-  return SPDR;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
@@ -220,7 +154,6 @@ ISR(INT1_vect) {
  * decrement the encoder variable.
  */
 ISR(PCINT0_vect) {
-  static unsigned char rotary_state = 0;
 
   rotary_state <<= 2;
   rotary_state |= (IS_SET(P_A) << 1) | (IS_SET(P_B));

@@ -1,6 +1,9 @@
 #ifndef REGISTER_H
 #define REGISTER_H
 
+#define true    1
+#define false   0
+
 /* Wrapper functions */
 #define RESET(x)        _XRS(x)     // Reset the given PORT bit
 #define SET(x)          _XS(x)      // Set the given PORT bit
