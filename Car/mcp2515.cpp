@@ -83,6 +83,37 @@ uint8_t mcp_read (uint8_t addr) {
 }
 
 /*
+ * MCP2515 Request-To-send
+ * 
+ * Sends the request-to-send instruction
+ * with the given flags of buffers to
+ * send.
+ */
+void mcp_rts (uint8_t txb_flags) {
+    RESET(MCP_CS);
+    spi_transmit(MCP_RTS | txb_flags);
+    SET(MCP_CS);
+}
+
+/**
+ * MCP2515 Read Status
+ * 
+ * Sends the read status instruction to
+ * receive a byte of data containing
+ * the status flags.
+ */
+uint8_t mcp_read_status () {
+    uint8_t status;
+
+    RESET(MCP_CS);
+    spi_transmit(MCP_READ_STATUS);
+    status = spi_transmit(0x00);
+    SET(MCP_CS);
+
+    return status;
+}
+
+/*
  * MCP2515 Write to Register
  * 
  * Puts the given data in the given MCP2515
@@ -96,7 +127,7 @@ void mcp_write (uint8_t addr, uint8_t data) {
     SET(MCP_CS);
 }
 
-/**
+/*
  * MCP2515 Bit Modify Register
  * 
  * Modifies the given register by

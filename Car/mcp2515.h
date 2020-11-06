@@ -31,6 +31,12 @@
 #define RXB0CTRL    0x60        // Receive Buffer 0 Control Register
 #define RXB1CTRL    0x70        // Reveive Buffer 1 Control Register
 
+/* * * * * * * * * * * * * * * */
+/*                             */
+/*    Register Bit Positions   */
+/*                             */
+/* * * * * * * * * * * * * * * */
+
 /* BFCTRL */
 #define B0BFM       0
 #define B1BFM       1
@@ -147,6 +153,10 @@
 bool mcp_init (uint8_t baud_prescaler);
 
 uint8_t mcp_read (uint8_t addr);
+
+void mcp_rts (uint8_t txb_flags);
+
+uint8_t mcp_read_status ();
 
 void mcp_write (uint8_t addr, uint8_t data);
 
