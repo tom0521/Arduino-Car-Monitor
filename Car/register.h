@@ -27,7 +27,4 @@
 #define _ddr(x)     DDR ## x
 #define _pin(x)    PIN ## x
 
-/* Register Bits */
-#define P(x,y)  P ## x ## y
-
 #endif // REGISTER_H
