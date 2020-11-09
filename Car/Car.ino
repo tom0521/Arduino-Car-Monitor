@@ -109,6 +109,9 @@ void setup() {
     Serial.println("Success");
   }
 
+  // Put MCP2515 in Normal Operation Mode
+  mcp_bit_modify(CANCTRL, (1 << REQOP0) | (1 << REQOP1) | (1 << REQOP2), 0);
+
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
   
   // Turn on global interrupts
@@ -123,8 +126,37 @@ void setup() {
  *   2. 
  */
 void loop() {
-  lcd.setCursor(0,0);
-  lcd.print(encoder);
+  mcp_can_frame frame;
+  uint8_t data[] = {0x02,0x01,0x0C,0x00,0x00,0x00,0x00,0x00};
+
+  // If successfully sent the message
+  if (mcp_send_message(0x7DF, 8, data)) {
+    Serial.println("Message sent");
+    // Then wait for the reply
+    while (!mcp_check_message()) { Serial.println("Waiting"); _delay_ms(1000); }
+
+    // ... and print the reply
+    if (mcp_get_message(&frame)){
+      Serial.print("SID: "); Serial.println(frame.sid,HEX);
+      Serial.print("SRR: "); Serial.println(frame.srr,BIN);
+      Serial.print("IDE: "); Serial.println(frame.ide,HEX);
+      Serial.print("U0: ");  Serial.println(frame.u0,BIN);
+      Serial.print("EID: "); Serial.println(frame.eid,HEX);
+      Serial.print("U1: ");  Serial.println(frame.u1,BIN);
+      Serial.print("RB1: "); Serial.println(frame.rb1,BIN);
+      Serial.print("RB2: "); Serial.println(frame.rb2,BIN);
+      Serial.print("DLC: "); Serial.println(frame.dlc,HEX);
+      Serial.print("Data0: "); Serial.println(frame.data[0],HEX);
+      Serial.print("Data1: "); Serial.println(frame.data[1],HEX);
+      Serial.print("Data2: "); Serial.println(frame.data[2],HEX);
+      Serial.print("Data3: "); Serial.println(frame.data[3],HEX);
+    }
+  } else {
+    Serial.println("Message failed to send");
+  }
+
+  // lcd.setCursor(0,0);
+  // lcd.print(encoder);
   // Serial.println(encoder);
 }
 

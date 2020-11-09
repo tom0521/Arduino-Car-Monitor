@@ -144,6 +144,21 @@
 #define RXM0        5
 #define RXM1        6
 
+typedef struct {
+    uint16_t sid : 11;   // Standard Identifier
+    uint8_t srr : 1;    // Standard Frame Remote Transmit Request
+    uint8_t ide : 1;    // Extended Identifier
+    uint8_t u0  : 1;    // Unimplemented
+    uint32_t eid : 18;   // Extended Identifier
+    uint8_t u1  : 1;    // Unimplemented
+    uint8_t rtr : 1;    // Extended Frame Remote Transmission Request
+    uint8_t rb1 : 1;    // Reserved Bit 1
+    uint8_t rb2 : 1;    // Reserved Bit 2
+    uint8_t dlc : 4;    // Data Length Code
+    uint8_t data[8];    // Data
+
+} mcp_can_frame;
+
 /* * * * * * * * * * * * * * * */
 /*                             */
 /*    Function Definitions     */
@@ -151,6 +166,12 @@
 /* * * * * * * * * * * * * * * */
 
 bool mcp_init (uint8_t baud_prescaler);
+
+bool mcp_check_message ();
+
+bool mcp_get_message (mcp_can_frame * frame);
+
+bool mcp_send_message (uint16_t id, uint8_t length, uint8_t * data);
 
 uint8_t mcp_read (uint8_t addr);
 

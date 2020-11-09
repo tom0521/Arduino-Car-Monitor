@@ -14,8 +14,7 @@
  * 
  */
 bool mcp_init (uint8_t baud_prescaler) {
-    // Set all chip selects HIGH because
-    // I do not want to send data yet
+    // Set the Chip select HIGH to not send messages
     SET(MCP_CS);
     // Set the MCP2515 Chip Select pin as output
     SET_OUTPUT(MCP_CS);
@@ -66,16 +65,98 @@ bool mcp_init (uint8_t baud_prescaler) {
     return true;
 }
 
+/* TODO: Use interrupt to receive message */
+/*
+ * MCP2515 Check Message
+ * 
+ * Checks if the interrupt pins is set LOW
+ */
+bool mcp_check_message () {
+    /* Interrupt pin LOW means a message is waiting */
+    return (!IS_SET(MCP_INT));
+}
+
+/**
+ * MCP2515 Get Message
+ * 
+ * If there is a buffer waiting to be received,
+ * then move it into the provided data buffer
+ * and set the buffer as available for use
+ */
+bool mcp_get_message (mcp_can_frame * frame) {
+    //Get the status of RX/TX buffers
+    uint8_t status = mcp_read_status();
+
+    // Read RX Buffer address flags
+    uint8_t nm;
+    if (!(status & 0x01)) { // RXB0
+        nm = 0x00;
+    } else if (!(status & 0x02)) { // RXB1
+        nm = 0x02;
+    } else { // There are no messages waiting
+        return false;
+    }
+
+    RESET(MCP_CS);
+    /* Send READ RX BUFFER instruction starting at
+        register represented by nm flags */
+    spi_transmit(MCP_READ_RX | nm);
+
+    /* Read from RXBnSIDH register:
+        - Identifier bits 10-3 */
+    *(uint8_t *)frame = spi_transmit(0x00);
+
+    /* Read from RXBnSIDL register:
+        - Identifier bits 2-0 (bits 7-5)
+        - Standard Fram Remote Trasmit Request (bit 4)
+        - Extended Identifier bit flag (bit 3)
+        - Extended Identifier bits 17-16 (bits 1-0) */
+    *(((uint8_t *)frame)+1) = spi_transmit(0x00);
+
+    /* Read from RXBnEID8 register:
+        - Extended Identifier bits 15-8 (1 byte) */
+    *(((uint8_t *)frame)+2) = spi_transmit(0x00);
+
+    /* Read from RXBnEID0 register:
+        - Extended Identifier bits 7-0 (1 byte) */
+    *(((uint8_t *)frame)+3) = spi_transmit(0x00);
+
+    /* Read from RXBnDLC register:
+        - Remote Transmission Request bit flag (bit 6)
+        - Data Length Code (bits 3-0) */
+    *(((uint8_t *)frame)+4) = spi_transmit(0x00);
+
+    /* Read from RXBnDm registers */
+    for (uint8_t m = 0; m < frame->dlc; ++m) {
+        frame->data[m] = spi_transmit(0x00);
+    }
+
+    SET(MCP_CS);
+
+    // Clear the interrupt flag
+    mcp_bit_modify(CANINTF, (1 << ((nm == 0x00) ? RX0IF : RX1IF)), 0);
+
+    return true;
+}
+
+/*
+ * MCP2515 Send Message
+ * 
+ * If there is an unused buffer in the MCP2515
+ * memory, then store the message to send there
+ * and request to send the message
+ */
 bool mcp_send_message (uint16_t id, uint8_t data_len, uint8_t * data) {
+    //Get the status of RX/TX buffers
     uint8_t status = mcp_read_status();
     
-    // Load TX Buffer address pointer bits
+    // Load TX Buffer address flags
     uint8_t abc;
-    if (!(status & 0x04)) { // TXB0CNTRL
+    if (!(status & 0x04)) { // TXB0
         abc = 0x00;
-    } else if (!(status & 0x10)) { // TXB1CNTRL
+    } else if (!(status & 0x10)) { // TXB1
         abc = 0x02;
-    } else if (!(status & 0x40)) { // TXB2CNTRL
+    } else if (!(status & 0x40)) { // TXB2
         abc = 0x04;
     } else { // All buffers full
         return false;
@@ -117,7 +198,7 @@ bool mcp_send_message (uint16_t id, uint8_t data_len, uint8_t * data) {
     SET(MCP_CS);
 
     /* Need to wait? */
-    // _delay_us(1);
+    _delay_us(1);
 
     /* Send the Request to send instruction */
     /* If message is in TXB0 registers, then
