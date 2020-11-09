@@ -44,14 +44,41 @@ LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 void setup() {
   // Start serial connection for debugging
   Serial.begin(9600);
+
+  /* * * * * * * * * * * * * * * * * * * * * */
+  /*                 I/O setup               */
+  /* * * * * * * * * * * * * * * * * * * * * */
+  Serial.println("Setting up I/O pins...");
+  /* Rotary Encoder */
+  // Set the rotatry encoder button to be input no pull up resistor
+  SET_INPUT(P_SW);
+  // Set the rotary encoder A pin to be input with the pull up resistor
+  SET_INPUT(P_A);
+  SET(P_A);
+  // Set the rotary encoder B pin to be input with the pull up resistor
+  SET_INPUT(P_B);
+  SET(P_B);
+  // Set all of the LED pins as output pins
+  SET_OUTPUT(R_LED);
+  SET_OUTPUT(G_LED);
+  SET_OUTPUT(B_LED);
+
+  /* MCP2515 */
+  // Set the Chip select HIGH to not send
+  // messages when spi is set up
+  SET(MCP_CS);
+  // Set the MCP2515 Chip Select pin as output
+  SET_OUTPUT(MCP_CS);
+  // Set up MCP2515 interrupt pin as input pin
+  SET_INPUT(MCP_INT);
+  // Enable the pull up resistor
+  SET(MCP_INT);
   
+
   /* * * * * * * * * * * * * * * * * * * * * */
   /*       Rotary Encoder Button setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Set the rotatry encoder button to be input no pull up resistor
-  // DDRD &= ~(1 << SW);
-  SET_INPUT(P_SW);
-  
+  Serial.println("Setting up button interrupt...");
   // Falling edge of INT0 generates interrupt
   EICRA |= (1 << ISC11);
   EICRA &= ~(1 << ISC10);
@@ -61,29 +88,22 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder A & B setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Set the rotary encoder A pin to be input with the pull up resistor
-  SET_INPUT(P_A);
-  SET(P_A);
-
-  // Set the rotary encoder B pin to be input with the pull up resistor
-  SET_INPUT(P_B);
-  SET(P_B);
-
-  // Eable interrupts on the rotary encoder A pin
+  Serial.println("Setting up Encoder intrrupt...");
+  // Enable interrupts on the rotary encoder A pin
   PCMSK0 |= (1 << PCINT0);
   // Enable PORTB Pin change interrupts
   PCICR |= (1 << PCIE0);
 
+
+  Serial.println("Enabling global interrupts...");
+  // Turn on global interrupts
+  sei();
+
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder LEDs Setup        */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Set all of the LED pins as output pins
-  // DDRD |= (1 << R_LED) | (1 << G_LED) | (1 << B_LED);
-  SET_OUTPUT(R_LED);
-  SET_OUTPUT(G_LED);
-  SET_OUTPUT(B_LED);
+  Serial.println("Turning off the LEDs...");
   // Turn off all LEDs by setting them logical HIGH
-  // PORTD |= (1 << R_LED) | (1 << G_LED) | (1 << B_LED);
   SET(R_LED);
   SET(G_LED);
   SET(B_LED);
@@ -91,31 +111,30 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
+  Serial.println("Setting up LCD...");
   lcd.begin(20,4);
-  
+
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
+  Serial.println("Setting up SPI interface...");
   // Initialize SPI
   spi_init();
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
+  Serial.println("Setting up CAN interface...");
   // Initialize CAN-BUS communication
   if (!mcp_init(0x01)) {
-    Serial.println("Failed");
-  } else {
-    Serial.println("Success");
+    Serial.println("CAN setup failed");
   }
 
+  Serial.println("Putting MCP2515 into Normal Operation Mode...");
   // Put MCP2515 in Normal Operation Mode
   mcp_bit_modify(CANCTRL, (1 << REQOP0) | (1 << REQOP1) | (1 << REQOP2), 0);
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
-  
-  // Turn on global interrupts
-  sei();
 }
 
 /**

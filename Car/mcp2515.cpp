@@ -14,15 +14,6 @@
  * 
  */
 bool mcp_init (uint8_t baud_prescaler) {
-    // Set the Chip select HIGH to not send messages
-    SET(MCP_CS);
-    // Set the MCP2515 Chip Select pin as output
-    SET_OUTPUT(MCP_CS);
-    // Set up MCP2515 interrupt pin as input pin
-    SET_INPUT(MCP_INT);
-    // Enable the pull up resistor
-    SET(MCP_INT);
-
     // Software RESET the MCP2515
     RESET(MCP_CS);
     spi_transmit(MCP_RESET);
