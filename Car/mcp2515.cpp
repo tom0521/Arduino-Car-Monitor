@@ -36,7 +36,7 @@ bool mcp_init (uint8_t baud_prescaler) {
     SET(MCP_CS);
 
     // On successful initialization, check the available PIDs
-    if (mcp_read(CNF1) != 0x01) {
+    if (mcp_read(CNF1) != baud_prescaler) {
         return false;
     }
 
@@ -68,21 +68,25 @@ bool mcp_check_message () {
 }
 
 /**
- * MCP2515 Get Message
+ * MCP2515 RX Message
  * 
  * If there is a buffer waiting to be received,
  * then move it into the provided data buffer
  * and set the buffer as available for use
  */
-bool mcp_get_message (mcp_can_frame * frame) {
-    //Get the status of RX/TX buffers
-    uint8_t status = mcp_read_status();
+bool mcp_rx_message (mcp_can_frame * frame) {
+    // Byte to store the recieved data
+    uint8_t rx_byte;
 
+    //Get the status of RX/TX buffers
+    rx_byte = mcp_read_status();
+
+    /* TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if (!(status & 0x01)) { // RXB0
+    if (!(rx_byte & 0x01)) { // RXB0
         nm = 0x00;
-    } else if (!(status & 0x02)) { // RXB1
+    } else if (!(rx_byte & 0x02)) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -95,27 +99,33 @@ bool mcp_get_message (mcp_can_frame * frame) {
 
     /* Read from RXBnSIDH register:
         - Identifier bits 10-3 */
-    *(uint8_t *)frame = spi_transmit(0x00);
+    frame->sid = (spi_transmit(0x00) << 3);
 
     /* Read from RXBnSIDL register:
         - Identifier bits 2-0 (bits 7-5)
-        - Standard Fram Remote Trasmit Request (bit 4)
+        - Standard Frame Remote Trasmit Request (bit 4)
         - Extended Identifier bit flag (bit 3)
         - Extended Identifier bits 17-16 (bits 1-0) */
-    *(((uint8_t *)frame)+1) = spi_transmit(0x00);
+    rx_byte = spi_transmit(0x00);
+    frame->sid |= (rx_byte >> 5);
+    frame->srr = ((rx_byte >> 4) & 0x01);
+    frame->ide = ((rx_byte >> 3) & 0x01);
+    frame->eid = (rx_byte << 16);
 
     /* Read from RXBnEID8 register:
         - Extended Identifier bits 15-8 (1 byte) */
-    *(((uint8_t *)frame)+2) = spi_transmit(0x00);
+    frame->eid |= (spi_transmit(0x00) << 8);
 
     /* Read from RXBnEID0 register:
         - Extended Identifier bits 7-0 (1 byte) */
-    *(((uint8_t *)frame)+3) = spi_transmit(0x00);
+    frame->eid |= spi_transmit(0x00);
 
     /* Read from RXBnDLC register:
         - Remote Transmission Request bit flag (bit 6)
         - Data Length Code (bits 3-0) */
-    *(((uint8_t *)frame)+4) = spi_transmit(0x00);
+    rx_byte = spi_transmit(0x00);
+    frame->rtr = ((rx_byte >> 6) & 0x01);
+    frame->dlc = (rx_byte & 0x07);
 
     /* Read from RXBnDm registers */
     for (uint8_t m = 0; m < frame->dlc; ++m) {
@@ -131,16 +141,17 @@ bool mcp_get_message (mcp_can_frame * frame) {
 }
 
 /*
- * MCP2515 Send Message
+ * MCP2515 TX Message
  * 
  * If there is an unused buffer in the MCP2515
  * memory, then store the message to send there
  * and request to send the message
  */
-bool mcp_send_message (uint16_t id, uint8_t data_len, uint8_t * data) {
+bool mcp_tx_message (uint16_t id, uint8_t data_len, uint8_t * data) {
     //Get the status of RX/TX buffers
     uint8_t status = mcp_read_status();
     
+    /* TODO: double check bit positions */
     // Load TX Buffer address flags
     uint8_t abc;
     if (!(status & 0x04)) { // TXB0

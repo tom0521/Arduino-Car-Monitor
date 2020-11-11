@@ -11,11 +11,6 @@
  * 
  */
 void spi_init() {
-  // Set all of the pins low to start
-  RESET(P_SCK);
-  RESET(P_MISO);
-  RESET(P_MISO);
-
   // Set MOSI and SCK as outputs
   SET_OUTPUT(P_MOSI);
   SET_OUTPUT(P_SCK);
