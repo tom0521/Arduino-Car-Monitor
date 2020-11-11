@@ -84,9 +84,9 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     /* TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if (!(rx_byte & 0x01)) { // RXB0
+    if (rx_byte & 0x01) { // RXB0
         nm = 0x00;
-    } else if (!(rx_byte & 0x02)) { // RXB1
+    } else if (rx_byte & 0x02) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -110,7 +110,8 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     frame->sid |= (rx_byte >> 5);
     frame->srr = ((rx_byte >> 4) & 0x01);
     frame->ide = ((rx_byte >> 3) & 0x01);
-    frame->eid = (rx_byte << 16);
+    frame->eid = rx_byte;
+    frame->eid <<= 16;
 
     /* Read from RXBnEID8 register:
         - Extended Identifier bits 15-8 (1 byte) */
@@ -147,7 +148,7 @@ bool mcp_rx_message (mcp_can_frame * frame) {
  * memory, then store the message to send there
  * and request to send the message
  */
-bool mcp_tx_message (uint16_t id, uint8_t data_len, uint8_t * data) {
+bool mcp_tx_message (mcp_can_frame * frame) {
     //Get the status of RX/TX buffers
     uint8_t status = mcp_read_status();
     
@@ -171,30 +172,30 @@ bool mcp_tx_message (uint16_t id, uint8_t data_len, uint8_t * data) {
 
     /* Write to TXBnSIDH register:
         - Identifier bits 10-3 */
-    spi_transmit(id >> 3);
+    spi_transmit(frame->sid >> 3);
 
     /* Write to TXBnSIDL register:
         - Identifier bits 2-0 (bits 7-5)
         - Extended Identifier Enable Bit (bit 3)
         - Extended Identifier Bits 17-16 (bits 1-0) */
-    spi_transmit(id << 5);
+    spi_transmit((frame->sid << 5) | (frame->ide << 3) | (frame->eid >> 16));
 
     /* Write to TXBnEID8 register:
         - Extended Identifer bits 15-8 */
-    spi_transmit(0x00); // Not using extended identifier
+    spi_transmit(frame->eid >> 8); // Not using extended identifier
 
     /* Write to TXBnEID0 register:
         - Extended Identifier bits 7-0 */
-    spi_transmit(0x00); // Not using extended identifier
+    spi_transmit(frame->eid); // Not using extended identifier
 
     /* Write to TXBnDLC register:
         - Remote Transmission Request Bit (bit 6)
         - Data Length Code (bits 3-0) */
-    spi_transmit(data_len);
+    spi_transmit((frame->rtr << 6) | frame->dlc);
 
     /* Write to TXBnDm registers with data */
-    for(uint8_t m = 0; m < data_len; ++m) {
-        spi_transmit(data[m]);
+    for(uint8_t m = 0; m < frame->dlc; ++m) {
+        spi_transmit(frame->data[m]);
     }
 
     SET(MCP_CS);

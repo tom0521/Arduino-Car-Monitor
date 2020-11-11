@@ -146,33 +146,38 @@ void setup() {
  */
 void loop() {
   mcp_can_frame frame;
-  uint8_t data[] = {0x02,0x01,0x0C,0x00,0x00,0x00,0x00,0x00};
+  frame.sid = 0x7DF;
+  frame.srr = 0;
+  frame.ide = 0;
+  frame.eid = 0;
+  frame.rtr = 0;
+  frame.dlc = 8;
+  frame.data[0] = 0x02;
+  frame.data[1] = 0x01;
+  frame.data[2] = 0x0C;
+  frame.data[3] = 0x55;
+  frame.data[4] = 0x55;
+  frame.data[5] = 0x55;
+  frame.data[6] = 0x55;
+  frame.data[7] = 0x55;
 
   // If successfully sent the message
-  if (mcp_send_message(0x7DF, 8, data)) {
+  if (mcp_tx_message(&frame)) {
     Serial.println("Message sent");
+    Serial.println(mcp_read_status(),BIN);
     // Then wait for the reply
-    while (!mcp_check_message()) { Serial.println("Waiting"); _delay_ms(1000); }
+    while (!mcp_check_message()) { /*Serial.println("Waiting");*/ _delay_ms(1000); }
 
     // ... and print the reply
-    if (mcp_get_message(&frame)){
-      Serial.print("SID: "); Serial.println(frame.sid,HEX);
-      Serial.print("SRR: "); Serial.println(frame.srr,BIN);
-      Serial.print("IDE: "); Serial.println(frame.ide,HEX);
-      Serial.print("U0: ");  Serial.println(frame.u0,BIN);
-      Serial.print("EID: "); Serial.println(frame.eid,HEX);
-      Serial.print("U1: ");  Serial.println(frame.u1,BIN);
-      Serial.print("RB1: "); Serial.println(frame.rb1,BIN);
-      Serial.print("RB2: "); Serial.println(frame.rb2,BIN);
-      Serial.print("DLC: "); Serial.println(frame.dlc,HEX);
-      Serial.print("Data0: "); Serial.println(frame.data[0],HEX);
-      Serial.print("Data1: "); Serial.println(frame.data[1],HEX);
-      Serial.print("Data2: "); Serial.println(frame.data[2],HEX);
-      Serial.print("Data3: "); Serial.println(frame.data[3],HEX);
+    if (mcp_rx_message(&frame)){
+      Serial.print(((256*frame.data[0])+frame.data[1])/4.0); Serial.println(" RPM");
     }
   } else {
     Serial.println("Message failed to send");
   }
+  
+
+  _delay_ms(5000);
 
   // lcd.setCursor(0,0);
   // lcd.print(encoder);
@@ -205,7 +210,6 @@ ISR(INT1_vect) {
  * decrement the encoder variable.
  */
 ISR(PCINT0_vect) {
-
   rotary_state <<= 2;
   rotary_state |= (IS_SET(P_A) << 1) | (IS_SET(P_B));
   rotary_state &= 0x0F;
