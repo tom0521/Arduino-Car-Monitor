@@ -126,7 +126,7 @@ bool mcp_rx_message (mcp_can_frame * frame) {
         - Data Length Code (bits 3-0) */
     rx_byte = spi_transmit(0x00);
     frame->rtr = ((rx_byte >> 6) & 0x01);
-    frame->dlc = (rx_byte & 0x07);
+    frame->dlc = (rx_byte & 0x0F);
 
     /* Read from RXBnDm registers */
     for (uint8_t m = 0; m < frame->dlc; ++m) {
@@ -182,11 +182,11 @@ bool mcp_tx_message (mcp_can_frame * frame) {
 
     /* Write to TXBnEID8 register:
         - Extended Identifer bits 15-8 */
-    spi_transmit(frame->eid >> 8); // Not using extended identifier
+    spi_transmit(frame->eid >> 8);
 
     /* Write to TXBnEID0 register:
         - Extended Identifier bits 7-0 */
-    spi_transmit(frame->eid); // Not using extended identifier
+    spi_transmit(frame->eid);
 
     /* Write to TXBnDLC register:
         - Remote Transmission Request Bit (bit 6)
