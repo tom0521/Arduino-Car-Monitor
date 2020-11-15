@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
-#include "defauts.h"
+#include "pins.h"
 #include "mcp2515.h"
 #include "register.h"
 #include "spi.h"
@@ -84,9 +84,9 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     /* TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if (rx_byte & 0x01) { // RXB0
+    if ((rx_byte & 1) != 0) { // RXB0
         nm = 0x00;
-    } else if (rx_byte & 0x02) { // RXB1
+    } else if ((rx_byte & 0x2) != 0) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -155,11 +155,11 @@ bool mcp_tx_message (mcp_can_frame * frame) {
     /* TODO: double check bit positions */
     // Load TX Buffer address flags
     uint8_t abc;
-    if (!(status & 0x04)) { // TXB0
+    if ((status & 0x04) == 0) { // TXB0
         abc = 0x00;
-    } else if (!(status & 0x10)) { // TXB1
+    } else if ((status & 0x10) == 0) { // TXB1
         abc = 0x02;
-    } else if (!(status & 0x40)) { // TXB2
+    } else if ((status & 0x40) == 0) { // TXB2
         abc = 0x04;
     } else { // All buffers full
         return false;

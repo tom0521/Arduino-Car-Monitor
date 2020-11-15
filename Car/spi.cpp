@@ -1,5 +1,5 @@
 #include <avr/io.h>
-#include "defauts.h"
+#include "pins.h"
 #include "register.h"
 #include "spi.h"
 

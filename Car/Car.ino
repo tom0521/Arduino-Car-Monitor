@@ -5,12 +5,10 @@
   
 */
 
-// TODO: remove
-#include "defauts.h"
+#include "pins.h"
 #include "register.h"
 #include "mcp2515.h"
 #include "spi.h"
-#include <LiquidCrystal.h>
 
 /* LCD pin definitions */
 #define RS 14
@@ -20,12 +18,14 @@
 #define D6 18
 #define D7 19
 
-/* byte of flags needed for this project */
-uint8_t flags = 0;  // (R_FLAG)(B_FLAG)(G_FLAG)(CAN_FLAG)
-volatile int encoder = 0;
-volatile uint8_t rotary_state = 0;
+/* flags needed for this project */
+volatile struct flags
+{
+  uint8_t rgb : 3;        // RGB LED color
+  uint8_t can_flag : 1;   // Was CAN init successful
+} flags;
 
-LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
+volatile int encoder = 0;
 
 /**
  * Setup
@@ -63,6 +63,18 @@ void setup() {
   SET_OUTPUT(G_LED);
   SET_OUTPUT(B_LED);
 
+  // /* LCD */
+  // Set Register Select pin as output
+  SET_OUTPUT(P_RS);
+  // Set enable pin as output
+  SET_OUTPUT(P_EN);
+  // Set all the data pins as output
+  // Using 4-bit mode so only using D4-D7
+  SET_OUTPUT(P_D4);
+  SET_OUTPUT(P_D5);
+  SET_OUTPUT(P_D6);
+  SET_OUTPUT(P_D7);
+
   /* MCP2515 */
   // Set the Chip select HIGH to not send
   // messages when spi is set up
@@ -82,7 +94,7 @@ void setup() {
   // Falling edge of INT0 generates interrupt
   EICRA |= (1 << ISC11);
   EICRA &= ~(1 << ISC10);
-  // Enable interrupts for INT0
+  // Enable interrupts for INT1
   EIMSK |= (1 << INT1);
 
   /* * * * * * * * * * * * * * * * * * * * * */
@@ -112,7 +124,7 @@ void setup() {
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
   Serial.println("Setting up LCD...");
-  lcd.begin(20,4);
+  // lcd_init();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
@@ -129,10 +141,6 @@ void setup() {
   if (!mcp_init(0x01)) {
     Serial.println("CAN setup failed");
   }
-
-  Serial.println("Putting MCP2515 into Normal Operation Mode...");
-  // Put MCP2515 in Normal Operation Mode
-  mcp_bit_modify(CANCTRL, (1 << REQOP0) | (1 << REQOP1) | (1 << REQOP2), 0);
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
 }
@@ -161,27 +169,25 @@ void loop() {
   frame.data[6] = 0x55;
   frame.data[7] = 0x55;
 
+  Serial.println(encoder);
+  delay(1000);
   // If successfully sent the message
   if (mcp_tx_message(&frame)) {
-    Serial.println("Message sent");
-    Serial.println(mcp_read_status(),BIN);
+    Serial.println("Message Sent");
     // Then wait for the reply
-    while (!mcp_check_message()) { /*Serial.println("Waiting");*/ _delay_ms(1000); }
+    while (!mcp_check_message())
+      ;
 
     // ... and print the reply
     if (mcp_rx_message(&frame)){
-      Serial.print(((256*frame.data[0])+frame.data[1])/4.0); Serial.println(" RPM");
+      // 256A + B
+      // -------- = RPM
+      //    4
+      Serial.print(((frame.data[3] << 8)+frame.data[4])/4.0); Serial.println(" RPM");
     }
   } else {
     Serial.println("Message failed to send");
   }
-  
-
-  _delay_ms(5000);
-
-  // lcd.setCursor(0,0);
-  // lcd.print(encoder);
-  // Serial.println(encoder);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
@@ -196,6 +202,7 @@ void loop() {
  * reset the encoder variable back to zero.
  */
 ISR(INT1_vect) {
+  // Serial.println("Button int");
   // Set the current menu to the new menu
   encoder = 0;
 }
@@ -210,8 +217,10 @@ ISR(INT1_vect) {
  * decrement the encoder variable.
  */
 ISR(PCINT0_vect) {
+  static uint8_t rotary_state = 0;
+  // Serial.println("Encoder int");
   rotary_state <<= 2;
-  rotary_state |= (IS_SET(P_A) << 1) | (IS_SET(P_B));
+  rotary_state |= ((PIND >> 6) & 0x2) | ((PINB >> 0) & 0x1);
   rotary_state &= 0x0F;
 
   if (rotary_state == 0x09) {

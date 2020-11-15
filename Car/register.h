@@ -9,7 +9,7 @@
 #define SET(x)          _XS(x)      // Set the given PORT bit
 #define SET_INPUT(x)    _XSI(x)     // Reset the given DDR bit
 #define SET_OUTPUT(x)   _XSO(x)      // Set the given DDR bit
-#define IS_SET(x)       _XR(x)      // Get the value of the given PIN
+#define IS_SET(x)       _XR(x)      // Is the input PIN set?
 
 #define PORT(x)     _port(x)
 #define DDR(x)      _ddr(x)
@@ -18,7 +18,7 @@
 /* Register Bit operations */
 #define _XRS(x,y)   PORT(x) &= ~(1 << y)
 #define _XS(x,y)    PORT(x) |=  (1 << y)
-#define _XR(x,y)    (PIN(x) >> y) & 1
+#define _XR(x,y)    (PIN(x) & (1 << y)) != 0
 #define _XSI(x,y)   DDR(x) &= ~(1 << y)
 #define _XSO(x,y)   DDR(x) |= (1 << y)
 
