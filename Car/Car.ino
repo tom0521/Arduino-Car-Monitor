@@ -9,6 +9,7 @@
 #include "register.h"
 #include "mcp2515.h"
 #include "spi.h"
+#include "lcd.h"
 
 /* LCD pin definitions */
 #define RS 14
@@ -124,7 +125,7 @@ void setup() {
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
   Serial.println("Setting up LCD...");
-  // lcd_init();
+  lcd_init();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
