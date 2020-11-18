@@ -75,18 +75,18 @@ void lcd_init () {
     // Now that the screen is in 4-bit mode,
     // resend the completed Function Set
     // setting screen to "2" 5x10 rows
-    lcd_send_byte(0x28);
+    lcd_send_byte(LCD_FUNCTION_SET | LCD_DISPLAY_LINES);
 
     // Set Display control
     // Dissplay on
     // Cursore om
     // Blinking on
-    lcd_send_byte(0x0F);
+    lcd_send_byte(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON | LCD_CURSOR_ON | LCD_BLINKING_ON);
 
     // Set Entry Mode
     // Cursor increments
     // Screen scrolls left
-    lcd_send_byte(0x06);
+    lcd_send_byte(LCD_ENTRY_MODE | LCD_INC_CURSOR);
 
     // Start fresh
     lcd_clear();
@@ -103,14 +103,48 @@ void lcd_clear () {
     // Sending an instruction
     RESET(P_RS);
     // Clear instruction
-    lcd_send_byte(0x01);
+    lcd_send_byte(LCD_CLEAR);
     _delay_ms(LCD_CMD_DELAY);
 }
 
+/*
+ * LCD Home
+ * 
+ * Sends the command to go
+ * return the cursor home
+ */
 void lcd_home () {
     // Sending an instruction
     RESET(P_RS);
     // Home instruction
-    lcd_send_byte(0x02);
+    lcd_send_byte(LCD_HOME);
     _delay_ms(LCD_CMD_DELAY);
+}
+
+/*
+ * LCD Set Cursor
+ * 
+ * Sets the position of the
+ * cursor on the screen
+ */
+void lcd_set_cursor () {
+    RESET(P_RS);
+    lcd_send_byte(LCD_SET_DDRAM | 0x67);
+}
+
+/*
+ * LCD Print String
+ * 
+ * Prints the given string to the
+ * current cursor position
+ */
+void lcd_print (const char * s) {
+    // Set the Register Select pin for
+    // writing data to DDRAM
+    SET(P_RS);
+    // Print every character in the string
+    // stopping at the null character
+    for ( ; *s != '\0'; ++s) {
+        lcd_send_byte(*s);
+    }
 }
