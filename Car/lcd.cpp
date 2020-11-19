@@ -81,7 +81,7 @@ void lcd_init () {
     // Dissplay on
     // Cursore om
     // Blinking on
-    lcd_send_byte(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON | LCD_CURSOR_ON | LCD_BLINKING_ON);
+    lcd_send_byte(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON);
 
     // Set Entry Mode
     // Cursor increments
@@ -127,9 +127,29 @@ void lcd_home () {
  * Sets the position of the
  * cursor on the screen
  */
-void lcd_set_cursor () {
+void lcd_set_cursor (uint8_t addr) {
+    // Sending a command byte
     RESET(P_RS);
-    lcd_send_byte(LCD_SET_DDRAM | 0x67);
+    // Send the set DDRAM command with
+    // the address to move to
+    lcd_send_byte(LCD_SET_DDRAM | addr);
+}
+
+void lcd_cursor_left () {
+    // Sending a command byte
+    RESET(P_RS);
+    // Just send command to move cursor left
+    lcd_send_byte(LCD_SHIFT);
+}
+
+void lcd_cursor_down () {
+    // Sending a command byte
+    RESET(P_RS);
+    // Move the cursor ahead 40 times
+    // to move it down one row
+    for (uint8_t i = 0; i < 40; ++i) {
+        lcd_send_byte(LCD_SHIFT | LCD_SHIFT_RIGHT);
+    }
 }
 
 /*
@@ -147,4 +167,18 @@ void lcd_print (const char * s) {
     for ( ; *s != '\0'; ++s) {
         lcd_send_byte(*s);
     }
+}
+
+/*
+ * LCD Put Character
+ * 
+ * Prints the character to the
+ * current cursor position
+ */
+void lcd_putc (char c) {
+    // Set the Register Select pin for
+    // writing data to DDRAM
+    SET(P_RS);
+    // Print the character
+    lcd_send_byte(c);
 }

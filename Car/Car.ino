@@ -24,9 +24,10 @@ volatile struct flags
 {
   uint8_t rgb : 3;        // RGB LED color
   uint8_t can_flag : 1;   // Was CAN init successful
+  uint8_t int_flag : 1;
 } flags;
 
-volatile int encoder = 0;
+volatile uint8_t encoder = 0;
 
 /**
  * Setup
@@ -44,12 +45,12 @@ volatile int encoder = 0;
  */
 void setup() {
   // Start serial connection for debugging
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up I/O pins...");
+  // Serial.println("Setting up I/O pins...");
   /* Rotary Encoder */
   // Set the rotatry encoder button to be input no pull up resistor
   SET_INPUT(P_SW);
@@ -91,7 +92,7 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*       Rotary Encoder Button setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up button interrupt...");
+  // Serial.println("Setting up button interrupt...");
   // Falling edge of INT0 generates interrupt
   EICRA |= (1 << ISC11);
   EICRA &= ~(1 << ISC10);
@@ -101,21 +102,21 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder A & B setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up Encoder intrrupt...");
+  // Serial.println("Setting up Encoder intrrupt...");
   // Enable interrupts on the rotary encoder A pin
   PCMSK0 |= (1 << PCINT0);
   // Enable PORTB Pin change interrupts
   PCICR |= (1 << PCIE0);
 
 
-  Serial.println("Enabling global interrupts...");
+  // Serial.println("Enabling global interrupts...");
   // Turn on global interrupts
   sei();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder LEDs Setup        */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Turning off the LEDs...");
+  // Serial.println("Turning off the LEDs...");
   // Turn off all LEDs by setting them logical HIGH
   SET(R_LED);
   SET(G_LED);
@@ -124,23 +125,26 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up LCD...");
+  // Serial.println("Setting up LCD...");
   lcd_init();
+  // Initialized my Cursor
+  lcd_putc(LCD_R_ARROW);
+  lcd_cursor_left();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up SPI interface...");
+  // Serial.println("Setting up SPI interface...");
   // Initialize SPI
   spi_init();
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
-  Serial.println("Setting up CAN interface...");
+  // Serial.println("Setting up CAN interface...");
   // Initialize CAN-BUS communication
   if (!mcp_init(0x01)) {
-    Serial.println("CAN setup failed");
+    // Serial.println("CAN setup failed");
   }
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
@@ -170,25 +174,45 @@ void loop() {
   frame.data[6] = 0x55;
   frame.data[7] = 0x55;
 
-  Serial.println(encoder);
-  delay(1000);
-  // If successfully sent the message
-  if (mcp_tx_message(&frame)) {
-    Serial.println("Message Sent");
-    // Then wait for the reply
-    while (!mcp_check_message())
-      ;
-
-    // ... and print the reply
-    if (mcp_rx_message(&frame)){
-      // 256A + B
-      // -------- = RPM
-      //    4
-      Serial.print(((frame.data[3] << 8)+frame.data[4])/4.0); Serial.println(" RPM");
+  if (flags.int_flag) {
+    lcd_putc(' ');
+    switch (encoder % 4)
+    {
+    case 0:
+      lcd_set_cursor(LCD_ROW_ONE);
+      break;
+    case 1:
+      lcd_set_cursor(LCD_ROW_TWO);
+      break;
+    case 2:
+      lcd_set_cursor(LCD_ROW_THREE);
+      break;
+    case 3:
+      lcd_set_cursor(LCD_ROW_FOUR);
     }
-  } else {
-    Serial.println("Message failed to send");
+    lcd_putc(LCD_R_ARROW);
+    lcd_cursor_left();
+    flags.int_flag = 0;
   }
+  // Serial.println(encoder);
+  // delay(1000);
+  // // If successfully sent the message
+  // if (mcp_tx_message(&frame)) {
+  //   // Serial.println("Message Sent");
+  //   // Then wait for the reply
+  //   while (!mcp_check_message())
+  //     ;
+
+  //   // ... and print the reply
+  //   if (mcp_rx_message(&frame)){
+  //     // 256A + B
+  //     // -------- = RPM
+  //     //    4
+  //     // Serial.print(((frame.data[3] << 8)+frame.data[4])/4.0); Serial.println(" RPM");
+  //   }
+  // } else {
+  //   // Serial.println("Message failed to send");
+  // }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
@@ -203,9 +227,9 @@ void loop() {
  * reset the encoder variable back to zero.
  */
 ISR(INT1_vect) {
-  // Serial.println("Button int");
   // Set the current menu to the new menu
   encoder = 0;
+  flags.int_flag = 1;
 }
 
 /**
@@ -219,7 +243,6 @@ ISR(INT1_vect) {
  */
 ISR(PCINT0_vect) {
   static uint8_t rotary_state = 0;
-  // Serial.println("Encoder int");
   rotary_state <<= 2;
   rotary_state |= ((PIND >> 6) & 0x2) | ((PINB >> 0) & 0x1);
   rotary_state &= 0x0F;
@@ -230,4 +253,5 @@ ISR(PCINT0_vect) {
   else if (rotary_state == 0x03) {
     --encoder;
   }
+  flags.int_flag = 1;
 }
