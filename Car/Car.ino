@@ -8,23 +8,19 @@
 #include "pins.h"
 #include "register.h"
 #include "mcp2515.h"
+#include "obd2.h"
 #include "spi.h"
 #include "lcd.h"
 
-/* LCD pin definitions */
-#define RS 14
-#define EN 15
-#define D4 16
-#define D5 17
-#define D6 18
-#define D7 19
+const static char * ERROR_MSG = ":(";
+const static char * SUCC_MSG = ":)";
 
 /* flags needed for this project */
 volatile struct flags
 {
   uint8_t rgb : 3;        // RGB LED color
-  uint8_t can_flag : 1;   // Was CAN init successful
-  uint8_t int_flag : 1;
+  uint8_t can_flag : 1;   // Was CAN init successful?
+  uint8_t int_flag : 1;   // Has there been user input?
 } flags;
 
 volatile uint8_t encoder = 0;
@@ -45,7 +41,7 @@ volatile uint8_t encoder = 0;
  */
 void setup() {
   // Start serial connection for debugging
-  // Serial.begin(9600);
+  Serial.begin(9600);
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
@@ -145,9 +141,80 @@ void setup() {
   // Initialize CAN-BUS communication
   if (!mcp_init(0x01)) {
     // Serial.println("CAN setup failed");
+  } else { // Check for supported PIDs
+    mcp_can_frame frame;
+    frame.sid = CAN_ECU_REQ;
+    frame.srr = 0;
+    frame.ide = 0;
+    frame.eid = 0;
+    frame.rtr = 0;
+    frame.dlc = 8;
+    frame.data[OBD_LENGTH] = 0x02;
+    frame.data[OBD_MODE] = OBD_CUR_DATA;
+    frame.data[OBD_PID] = OBD_PID_SUPPORT_1;
+    lcd_set_cursor(LCD_ROW_ONE + 2);
+    if (mcp_tx_message(&frame)) {
+      lcd_print("0x0D - ");
+      while (!mcp_check_message())
+        ;
+      mcp_rx_message(&frame);
+      Serial.println(frame.data[OBD_B], HEX);
+      if (frame.data[OBD_B] & 0x08 != 0) {
+        lcd_print(SUCC_MSG);
+      }
+    } else {
+      lcd_print("CAN Failed");
+    }
+
+    frame.sid = CAN_ECU_REQ;
+    frame.srr = 0;
+    frame.ide = 0;
+    frame.eid = 0;
+    frame.rtr = 0;
+    frame.dlc = 8;
+    frame.data[OBD_LENGTH] = 0x02;
+    frame.data[OBD_MODE] = OBD_CUR_DATA;
+    frame.data[OBD_PID] = OBD_PID_SUPPORT_2;
+    lcd_set_cursor(LCD_ROW_TWO + 2);
+    if (mcp_tx_message(&frame)) {
+      lcd_print("0x2F - ");
+      while (!mcp_check_message())
+        ;
+      mcp_rx_message(&frame);
+      Serial.println(frame.data[OBD_B], HEX);
+      if (frame.data[OBD_B] & 0x02 != 0) {
+        lcd_print(SUCC_MSG);
+      }
+    } else {
+      lcd_print("CAN Failed");
+    }
+
+    frame.sid = CAN_ECU_REQ;
+    frame.srr = 0;
+    frame.ide = 0;
+    frame.eid = 0;
+    frame.rtr = 0;
+    frame.dlc = 8;
+    frame.data[OBD_LENGTH] = 0x02;
+    frame.data[OBD_MODE] = OBD_CUR_DATA;
+    frame.data[OBD_PID] = OBD_PID_SUPPORT_3;
+    lcd_set_cursor(LCD_ROW_THREE + 2);
+    if (mcp_tx_message(&frame)) {
+      lcd_print("0x5E - ");
+      while (!mcp_check_message())
+        ;
+      mcp_rx_message(&frame);
+      Serial.println(frame.data[OBD_D], HEX);
+      if (frame.data[OBD_D] & 0x04 != 0) {
+        lcd_print(SUCC_MSG);
+      }
+    } else {
+      lcd_print("CAN Failed");
+    }
   }
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
+  
 }
 
 /**
@@ -159,20 +226,11 @@ void setup() {
  */
 void loop() {
   mcp_can_frame frame;
-  frame.sid = 0x7DF;
-  frame.srr = 0;
-  frame.ide = 0;
-  frame.eid = 0;
-  frame.rtr = 0;
+  frame.sid = CAN_ECU_REQ;
   frame.dlc = 8;
   frame.data[0] = 0x02;
-  frame.data[1] = 0x01;
+  frame.data[1] = OBD_CUR_DATA;
   frame.data[2] = 0x0C;
-  frame.data[3] = 0x55;
-  frame.data[4] = 0x55;
-  frame.data[5] = 0x55;
-  frame.data[6] = 0x55;
-  frame.data[7] = 0x55;
 
   if (flags.int_flag) {
     lcd_putc(' ');
@@ -194,25 +252,25 @@ void loop() {
     lcd_cursor_left();
     flags.int_flag = 0;
   }
-  // Serial.println(encoder);
-  // delay(1000);
-  // // If successfully sent the message
-  // if (mcp_tx_message(&frame)) {
-  //   // Serial.println("Message Sent");
-  //   // Then wait for the reply
-  //   while (!mcp_check_message())
-  //     ;
+  
+  lcd_set_cursor(LCD_ROW_FOUR + 2);
+  // If successfully sent the message
+  if (mcp_tx_message(&frame)) {
+    // Serial.println("Message Sent");
+    // Then wait for the reply
+    while (!mcp_check_message())
+      ;
 
-  //   // ... and print the reply
-  //   if (mcp_rx_message(&frame)){
-  //     // 256A + B
-  //     // -------- = RPM
-  //     //    4
-  //     // Serial.print(((frame.data[3] << 8)+frame.data[4])/4.0); Serial.println(" RPM");
-  //   }
-  // } else {
-  //   // Serial.println("Message failed to send");
-  // }
+    // ... and print the reply
+    if (mcp_rx_message(&frame)){
+      // 256A + B
+      // -------- = RPM
+      //    4
+      Serial.print(((frame.data[OBD_A] << 8)+frame.data[OBD_B])/4.0); Serial.println(" RPM");
+    }
+  } else {
+    // Serial.println("Message failed to send");
+  }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */

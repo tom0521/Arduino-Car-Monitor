@@ -144,6 +144,12 @@
 #define RXM0        5
 #define RXM1        6
 
+/* * * * * * * * * * * * * * * */
+/*                             */
+/*       CAN Definitions       */
+/*                             */
+/* * * * * * * * * * * * * * * */
+// MCP Can data frame
 typedef struct {
     uint16_t sid : 11;  // Standard Identifier
     uint8_t srr : 1;    // Standard Frame Remote Transmit Request
@@ -154,6 +160,12 @@ typedef struct {
     uint8_t data[8];
 } mcp_can_frame;
 
+/* CAN request codes */
+#define CAN_ECU_REQ     0x7DF   // CAN ECU request code
+
+/* CAN Response codes */
+#define CAN_ECU_RES     0x7E8   // CAN ECU response code
+
 /* * * * * * * * * * * * * * * */
 /*                             */
 /*    Function Definitions     */
@@ -161,21 +173,14 @@ typedef struct {
 /* * * * * * * * * * * * * * * */
 
 bool mcp_init (uint8_t baud_prescaler);
-
 bool mcp_check_message ();
-
 bool mcp_rx_message (mcp_can_frame * frame);
-
 bool mcp_tx_message (mcp_can_frame * frame);
-
 uint8_t mcp_read (uint8_t addr);
-
 void mcp_rts (uint8_t txb_flags);
-
 uint8_t mcp_read_status ();
-
+uint8_t mcp_rx_status ();
 void mcp_write (uint8_t addr, uint8_t data);
-
 void mcp_bit_modify (uint8_t addr, uint8_t mask, uint8_t data);
 
 #endif  // MCP2515_H

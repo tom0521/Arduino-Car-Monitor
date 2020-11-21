@@ -79,14 +79,14 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     uint8_t rx_byte;
 
     //Get the status of RX/TX buffers
-    rx_byte = mcp_read_status();
+    rx_byte = mcp_rx_status();
 
     /* TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if ((rx_byte & 1) != 0) { // RXB0
+    if (rx_byte & (1 << 6)) { // RXB0
         nm = 0x00;
-    } else if ((rx_byte & 0x2) != 0) { // RXB1
+    } else if (rx_byte & (1 << 7)) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -246,7 +246,7 @@ void mcp_rts (uint8_t txb_flags) {
     SET(MCP_CS);
 }
 
-/**
+/*
  * MCP2515 Read Status
  * 
  * Sends the read status instruction to
@@ -258,6 +258,24 @@ uint8_t mcp_read_status () {
 
     RESET(MCP_CS);
     spi_transmit(MCP_READ_STATUS);
+    status = spi_transmit(0x00);
+    SET(MCP_CS);
+
+    return status;
+}
+
+/**
+ * MCP2515 RX Status
+ * 
+ * Sends the RX Status instruction
+ * to recieve status of received
+ * messages.
+ */
+uint8_t mcp_rx_status () {
+    uint8_t status;
+
+    RESET(MCP_CS);
+    spi_transmit(MCP_RX_STATUS);
     status = spi_transmit(0x00);
     SET(MCP_CS);
 
