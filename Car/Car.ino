@@ -5,15 +5,14 @@
   
 */
 
-#include "pins.h"
-#include "register.h"
+#include "lcd.h"
+#include "list.h"
 #include "mcp2515.h"
 #include "obd2.h"
+#include "pins.h"
+#include "register.h"
 #include "spi.h"
-#include "lcd.h"
-
-const static char * ERROR_MSG = ":(";
-const static char * SUCC_MSG = ":)";
+#include "process.h"
 
 /* flags needed for this project */
 volatile struct flags
@@ -24,6 +23,17 @@ volatile struct flags
 } flags;
 
 volatile uint8_t encoder = 0;
+
+/*
+ * Process Queue
+ * 
+ * Contains jobs waiting to be processed.
+ * No more than 10 jobs should be created which
+ * is 60 bytes (3 x 2 byte pointers per process)
+ * created using malloc. This means that the
+ * dynamic space available is pleanty
+ */
+struct list queue;
 
 /**
  * Setup
@@ -41,7 +51,7 @@ volatile uint8_t encoder = 0;
  */
 void setup() {
   // Start serial connection for debugging
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
@@ -149,127 +159,41 @@ void setup() {
     frame.eid = 0;
     frame.rtr = 0;
     frame.dlc = 8;
-    frame.data[OBD_LENGTH] = 0x02;
-    frame.data[OBD_MODE] = OBD_CUR_DATA;
-    frame.data[OBD_PID] = OBD_PID_SUPPORT_1;
-    lcd_set_cursor(LCD_ROW_ONE + 2);
-    if (mcp_tx_message(&frame)) {
-      lcd_print("0x0D - ");
-      while (!mcp_check_message())
-        ;
-      mcp_rx_message(&frame);
-      Serial.println(frame.data[OBD_B], HEX);
-      if (frame.data[OBD_B] & 0x08 != 0) {
-        lcd_print(SUCC_MSG);
-      }
-    } else {
-      lcd_print("CAN Failed");
-    }
+    frame.data[OBD_FRAME_LENGTH] = 0x02;
+    frame.data[OBD_FRAME_MODE] = OBD_CUR_DATA;
 
-    frame.sid = CAN_ECU_REQ;
-    frame.srr = 0;
-    frame.ide = 0;
-    frame.eid = 0;
-    frame.rtr = 0;
-    frame.dlc = 8;
-    frame.data[OBD_LENGTH] = 0x02;
-    frame.data[OBD_MODE] = OBD_CUR_DATA;
-    frame.data[OBD_PID] = OBD_PID_SUPPORT_2;
-    lcd_set_cursor(LCD_ROW_TWO + 2);
-    if (mcp_tx_message(&frame)) {
-      lcd_print("0x2F - ");
-      while (!mcp_check_message())
-        ;
-      mcp_rx_message(&frame);
-      Serial.println(frame.data[OBD_B], HEX);
-      if (frame.data[OBD_B] & 0x02 != 0) {
-        lcd_print(SUCC_MSG);
-      }
-    } else {
-      lcd_print("CAN Failed");
-    }
+    // Read the first set of supported PIDs
+    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_1;
+    mcp_tx_message(&frame);
 
-    frame.sid = CAN_ECU_REQ;
-    frame.srr = 0;
-    frame.ide = 0;
-    frame.eid = 0;
-    frame.rtr = 0;
-    frame.dlc = 8;
-    frame.data[OBD_LENGTH] = 0x02;
-    frame.data[OBD_MODE] = OBD_CUR_DATA;
-    frame.data[OBD_PID] = OBD_PID_SUPPORT_3;
-    lcd_set_cursor(LCD_ROW_THREE + 2);
-    if (mcp_tx_message(&frame)) {
-      lcd_print("0x5E - ");
-      while (!mcp_check_message())
-        ;
-      mcp_rx_message(&frame);
-      Serial.println(frame.data[OBD_D], HEX);
-      if (frame.data[OBD_D] & 0x04 != 0) {
-        lcd_print(SUCC_MSG);
-      }
-    } else {
-      lcd_print("CAN Failed");
-    }
+    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_2;
+    mcp_tx_message(&frame);
+
+    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_2;
+    mcp_tx_message(&frame);
   }
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
-  
 }
 
 /**
  * Main loop
  * 
- * Logic flow:
- *   1. 
- *   2. 
+ * Checks if the process queue is empty
+ * If there is a job to process, then remove it
+ * from the queue, process it, and free it
  */
 void loop() {
-  mcp_can_frame frame;
-  frame.sid = CAN_ECU_REQ;
-  frame.dlc = 8;
-  frame.data[0] = 0x02;
-  frame.data[1] = OBD_CUR_DATA;
-  frame.data[2] = 0x0C;
-
-  if (flags.int_flag) {
-    lcd_putc(' ');
-    switch (encoder % 4)
-    {
-    case 0:
-      lcd_set_cursor(LCD_ROW_ONE);
-      break;
-    case 1:
-      lcd_set_cursor(LCD_ROW_TWO);
-      break;
-    case 2:
-      lcd_set_cursor(LCD_ROW_THREE);
-      break;
-    case 3:
-      lcd_set_cursor(LCD_ROW_FOUR);
-    }
-    lcd_putc(LCD_R_ARROW);
-    lcd_cursor_left();
-    flags.int_flag = 0;
-  }
-  
-  lcd_set_cursor(LCD_ROW_FOUR + 2);
-  // If successfully sent the message
-  if (mcp_tx_message(&frame)) {
-    // Serial.println("Message Sent");
-    // Then wait for the reply
-    while (!mcp_check_message())
-      ;
-
-    // ... and print the reply
-    if (mcp_rx_message(&frame)){
-      // 256A + B
-      // -------- = RPM
-      //    4
-      Serial.print(((frame.data[OBD_A] << 8)+frame.data[OBD_B])/4.0); Serial.println(" RPM");
-    }
+  // Check to see if there are any tasks to complete
+  if (!list_is_empty(&queue)) {
+    // Remove the process from the queue
+    struct process * p = list_entry(list_dequeue(&queue), struct process, elem);
+    // Execute the function
+    p->func();
+    // Free up the space
+    free(p);
   } else {
-    // Serial.println("Message failed to send");
+    // Idle state
   }
 }
 
@@ -277,6 +201,20 @@ void loop() {
 /*        Interrupt Service Routines       */
 /* * * * * * * * * * * * * * * * * * * * * */
 /**
+ * Interrup service routine for MCP2515.
+ * This is called whenever the pin is driven
+ * TODO: ??
+ * 
+ * Once called, the interrupt flag will be set
+ * for the received message to be processed in
+ * the main loop.
+ */
+ISR(INT0_vect) {
+  // Just set the flag
+  flags.can_flag = 1;
+}
+
+/*
  * Interrupt service routine for the rotary
  * encoder button. Called on the fallin edge
  * of a button press.
@@ -290,7 +228,7 @@ ISR(INT1_vect) {
   flags.int_flag = 1;
 }
 
-/**
+/*
  * Interrupt service routine for pin changes
  * on PORTB. This is called when there is a
  * change in position to the rotary encoder.

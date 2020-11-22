@@ -21,32 +21,29 @@ void lcd_pulse_enable () {
     _delay_us(LCD_SEND_DELAY);
 }
 
+/*
+ * LCD Send Nyble
+ * 
+ * Sends a nyble of data to the
+ * LCD by setting the correct bits
+ * and then pulsing the enable pin
+ */
 void lcd_send_nyble (uint8_t data) {
-    // Set the data pins accordingly
-    // TODO: Find a cleaner way to do this
-    if ((data & 0x08) != 0) {
-        SET(P_D7);
-    } else {
-        RESET(P_D7);
-    }
-    if ((data & 0x04) != 0) {
-        SET(P_D6);
-    } else {
-        RESET(P_D6);
-    }
-    if ((data & 0x02) != 0) {
-        SET(P_D5);
-    } else {
-        RESET(P_D5);
-    }
-    if ((data & 0x01) != 0) {
-        SET(P_D4);
-    } else {
-        RESET(P_D4);
-    }
+    // Reset all of the data bits
+    PORTC &= 0b11000011;
+    // Set all of the data bits
+    PORTC |= (data << 2);
+    
+    // Send the data
     lcd_pulse_enable();
 }
 
+/*
+ * LCD Send Byte
+ * 
+ * Sends two nybles of data
+ * since the LCD is in 4 bit mode
+ */
 void lcd_send_byte (uint8_t data) {
     lcd_send_nyble(data >> 4);
     lcd_send_nyble(data);
@@ -153,6 +150,20 @@ void lcd_cursor_down () {
 }
 
 /*
+ * LCD Put Character
+ * 
+ * Prints the character to the
+ * current cursor position
+ */
+void lcd_putc (char c) {
+    // Set the Register Select pin for
+    // writing data to DDRAM
+    SET(P_RS);
+    // Print the character
+    lcd_send_byte(c);
+}
+
+/*
  * LCD Print String
  * 
  * Prints the given string to the
@@ -170,15 +181,12 @@ void lcd_print (const char * s) {
 }
 
 /*
- * LCD Put Character
+ * LCD Print Float
  * 
- * Prints the character to the
- * current cursor position
+ * Prints a given float with given
+ * decimal precision to the current
+ * cursor position.
  */
-void lcd_putc (char c) {
-    // Set the Register Select pin for
-    // writing data to DDRAM
-    SET(P_RS);
-    // Print the character
-    lcd_send_byte(c);
+void lcd_print (float f) {
+    char buf[15];
 }

@@ -54,12 +54,12 @@
 #define OBD_PID_SUPPORT_3       0x40
 
 /* The OBD-II Data Frame */
-#define OBD_LENGTH      0   // OBD-II data length
-#define OBD_MODE        1   // OBD-II data mode
-#define OBD_PID         2   // OBD-II PID
-#define OBD_A           3   // OBD-II data A
-#define OBD_B           4   // OBD-II data B
-#define OBD_C           5   // OBD-II data C
-#define OBD_D           6   // OBD-II data D
+#define OBD_FRAME_LENGTH      0   // OBD-II data length
+#define OBD_FRAME_MODE        1   // OBD-II data mode
+#define OBD_FRAME_PID         2   // OBD-II PID
+#define OBD_FRAME_A           3   // OBD-II data A
+#define OBD_FRAME_B           4   // OBD-II data B
+#define OBD_FRAME_C           5   // OBD-II data C
+#define OBD_FRAME_D           6   // OBD-II data D
 
 #endif // OBD2_H

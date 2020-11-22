@@ -65,8 +65,7 @@ void lcd_home ();
 void lcd_set_cursor (uint8_t addr);
 void lcd_cursor_left ();
 void lcd_cursor_down ();
-void lcd_print (const char * s);
-void lcd_print (double d);
 void lcd_putc (char c);
+void lcd_print (const char * s);
 
 #endif // LCD_H
