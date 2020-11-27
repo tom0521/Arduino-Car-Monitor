@@ -3,7 +3,7 @@
 
 #include "list.h"
 
-typedef void (*operation)();
+typedef int8_t (*operation)(uint8_t arg);
 
 /**
  * Structure for jobs to run
@@ -13,9 +13,9 @@ typedef void (*operation)();
  * job that needs to be executed.
  */
 struct process {
-    operation func;    // Function to execute
-
-    struct list_elem elem; // Needed to add to lists
+    operation func;         // Function to execute
+    uint8_t arg;            // Function argument
+    struct list_elem elem;  // Needed to add to lists
 };
 
 #endif // PROCESS_H

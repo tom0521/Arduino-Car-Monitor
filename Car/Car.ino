@@ -14,14 +14,16 @@
 #include "spi.h"
 #include "process.h"
 
+#define CURSOR LCD_R_ARROW
+
 /* flags needed for this project */
 volatile struct flags
 {
   uint8_t rgb : 3;        // RGB LED color
-  uint8_t can_flag : 1;   // Was CAN init successful?
-  uint8_t int_flag : 1;   // Has there been user input?
+  uint8_t cursor : 2;
 } flags;
 
+/* Current position of the encoder */
 volatile uint8_t encoder = 0;
 
 /*
@@ -29,7 +31,7 @@ volatile uint8_t encoder = 0;
  * 
  * Contains jobs waiting to be processed.
  * No more than 10 jobs should be created which
- * is 60 bytes (3 x 2 byte pointers per process)
+ * is 90 bytes (3 x 3 byte pointers per process)
  * created using malloc. This means that the
  * dynamic space available is pleanty
  */
@@ -51,7 +53,7 @@ struct list queue;
  */
 void setup() {
   // Start serial connection for debugging
-  // Serial.begin(9600);
+  Serial.begin(9600);
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
@@ -99,7 +101,7 @@ void setup() {
   /*       Rotary Encoder Button setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
   // Serial.println("Setting up button interrupt...");
-  // Falling edge of INT0 generates interrupt
+  // Falling edge of INT1 generates interrupt
   EICRA |= (1 << ISC11);
   EICRA &= ~(1 << ISC10);
   // Enable interrupts for INT1
@@ -133,9 +135,6 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   // Serial.println("Setting up LCD...");
   lcd_init();
-  // Initialized my Cursor
-  lcd_putc(LCD_R_ARROW);
-  lcd_cursor_left();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
@@ -148,36 +147,26 @@ void setup() {
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
   // Serial.println("Setting up CAN interface...");
+  // Rising edge of INT0 generates interrupt
+  EICRA |= (1 << ISC01);
+  EICRA |= (1 << ISC00);
+  // Enable interrupts for INT0
+  EIMSK |= (1 << INT0);
+
   // Initialize CAN-BUS communication
-  if (!mcp_init(0x01)) {
-    // Serial.println("CAN setup failed");
-  } else { // Check for supported PIDs
-    mcp_can_frame frame;
-    frame.sid = CAN_ECU_REQ;
-    frame.srr = 0;
-    frame.ide = 0;
-    frame.eid = 0;
-    frame.rtr = 0;
-    frame.dlc = 8;
-    frame.data[OBD_FRAME_LENGTH] = 0x02;
-    frame.data[OBD_FRAME_MODE] = OBD_CUR_DATA;
-
-    // Read the first set of supported PIDs
-    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_1;
-    mcp_tx_message(&frame);
-
-    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_2;
-    mcp_tx_message(&frame);
-
-    frame.data[OBD_FRAME_PID] = OBD_PID_SUPPORT_2;
-    mcp_tx_message(&frame);
+  if (mcp_init(0x01)) {
+    // Create the catalyst request
+    struct process * p = (struct process *) malloc(sizeof(*p));
+    p->func = obd_request;
+    p->arg = OBD_ENGINE_SPEED;
+    list_enqueue(&queue, &p->elem);
   }
 
   // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
 }
 
 /**
- * Main loop
+ * Main loop  
  * 
  * Checks if the process queue is empty
  * If there is a job to process, then remove it
@@ -185,16 +174,105 @@ void setup() {
  */
 void loop() {
   // Check to see if there are any tasks to complete
-  if (!list_is_empty(&queue)) {
+  if (flags.setup && !list_is_empty(&queue)) {
     // Remove the process from the queue
     struct process * p = list_entry(list_dequeue(&queue), struct process, elem);
     // Execute the function
-    p->func();
-    // Free up the space
-    free(p);
+    if (p->func(p->arg) == 0) { // ... and free it on success
+      free(p);
+    } else {  // Push it to the back of the line 
+      /** TODO: Good for now */
+      list_enqueue(&queue, &p->elem);
+    }
   } else {
     // Idle state
   }
+}
+
+/* * * * * * * * * * * * * * * * * * * * * */
+/*          CAN Request Functions          */
+/* * * * * * * * * * * * * * * * * * * * * */
+/*
+ * OBD Request
+ * 
+ * Sends a can frame to MCP2515. The CAN
+ * frame contains an OBD request with the
+ * PID being the PID passed as an argument
+ */
+int8_t obd_request (uint8_t pid) {
+  mcp_can_frame frame;
+  frame.sid = CAN_ECU_REQ;
+  frame.srr = 0;
+  frame.ide = 0;
+  frame.eid = 0;
+  frame.rtr = 0;
+  frame.dlc = 8;
+  frame.data[OBD_FRAME_LENGTH] = 0x2;
+  frame.data[OBD_FRAME_MODE] = OBD_CUR_DATA;
+  frame.data[OBD_FRAME_PID] = pid;
+
+  if (!mcp_tx_message(&frame)) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
+/*
+ * OBD Response
+ * 
+ * Retrives the CAN frame from the
+ * MCP2515. This frame contains an
+ * OBD-II response.
+ */
+int8_t obd_response (uint8_t aux) {
+  mcp_can_frame frame;
+
+  if (!mcp_rx_message (&frame)) {
+    return -1;
+  }
+
+  switch (frame.data[OBD_FRAME_PID])
+  {
+  case OBD_ENGINE_SPEED: {
+    float engine_speed = ((256 * frame.data[OBD_FRAME_A]) + frame.data[OBD_FRAME_B]) / 4.f;
+    Serial.println(engine_speed);
+    break;
+  }
+  default:
+    // Unimplemented PID
+    Serial.println("Unimplemented PID");
+    // Don't want to re-queue an unimplemented pid
+    return 0;
+    break;
+  }
+
+  // Re-add the pid to the job queue
+  struct process * p = (struct process *) malloc(sizeof(*p));
+  p->func = obd_request;
+  p->arg = frame.data[OBD_FRAME_PID];
+  list_enqueue (&queue, &p->elem);
+
+  return 0;
+}
+
+// Print the encoder to the screen
+int8_t print_encoder (uint8_t saved_enc) {
+  // lcd_print (encoder);
+  return 0;
+}
+
+int8_t update_cursor (uint8_t prev_enc) {
+  uint8_t row = prev_enc % 4;
+  lcd_set_cursor(LCD_ROW(row));
+  lcd_putc(' ');
+
+  row = encoder % 4;
+  lcd_set_cursor(LCD_ROW(row));
+  lcd_putc(CURSOR);
+
+  flags.enc_int = 0;
+  return 0;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
@@ -203,15 +281,16 @@ void loop() {
 /**
  * Interrup service routine for MCP2515.
  * This is called whenever the pin is driven
- * TODO: ??
+ * high.
  * 
- * Once called, the interrupt flag will be set
- * for the received message to be processed in
- * the main loop.
+ * Once called, a process will be added to the
+ * queue to process received messages
  */
 ISR(INT0_vect) {
-  // Just set the flag
-  flags.can_flag = 1;
+  // Add a get message process to the job queue
+  struct process * p = (struct process *) malloc(sizeof(*p));
+  p->func = obd_response;
+  list_enqueue(&queue, &p->elem);
 }
 
 /*
@@ -223,9 +302,8 @@ ISR(INT0_vect) {
  * reset the encoder variable back to zero.
  */
 ISR(INT1_vect) {
-  // Set the current menu to the new menu
+  // Add a select handler to the queue
   encoder = 0;
-  flags.int_flag = 1;
 }
 
 /*
@@ -243,11 +321,10 @@ ISR(PCINT0_vect) {
   rotary_state |= ((PIND >> 6) & 0x2) | ((PINB >> 0) & 0x1);
   rotary_state &= 0x0F;
 
-  if (rotary_state == 0x09) {
+  if (rotary_state == 0x9) {
     ++encoder;
   }
-  else if (rotary_state == 0x03) {
+  else if (rotary_state == 0x3) {
     --encoder;
   }
-  flags.int_flag = 1;
 }
