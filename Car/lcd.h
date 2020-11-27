@@ -1,6 +1,9 @@
 #ifndef LCD_H
 #define LCD_H
 
+#define LCD_ROW(x) (((x % 4) % 2) * 0x40) \
+                 + (((x % 4) / 2) * 0x14)
+
 /* * * * * * * * * * * * * * * */
 /*                             */
 /*      Delay Definitions      */
@@ -52,7 +55,9 @@
 /*    Character Definitions    */
 /*                             */
 /* * * * * * * * * * * * * * * */
-#define LCD_R_ARROW             0x7E
+#define LCD_R_ARROW             0x7E    // →
+#define LCD_L_ARROW             0x7F    // ←
+#define LCD_BULLET              0x15
 
 /* * * * * * * * * * * * * * * */
 /*                             */
