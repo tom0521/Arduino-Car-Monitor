@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
+#include <stdlib.h>
 #include "pins.h"
 #include "register.h"
 #include "lcd.h"
@@ -188,5 +189,10 @@ void lcd_print (const char * s) {
  * cursor position.
  */
 void lcd_print (float f) {
-    char buf[15];
+    // Create a buffer to hold the string
+    char buf[10];
+    // Convert the float to a string
+    dtostrf(f,1,1,buf);
+    // Print the string
+    lcd_print(buf);
 }

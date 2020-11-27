@@ -72,5 +72,6 @@ void lcd_cursor_left ();
 void lcd_cursor_down ();
 void lcd_putc (char c);
 void lcd_print (const char * s);
+void lcd_print (float f);
 
 #endif // LCD_H
