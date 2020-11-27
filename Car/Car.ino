@@ -174,7 +174,7 @@ void setup() {
  */
 void loop() {
   // Check to see if there are any tasks to complete
-  if (flags.setup && !list_is_empty(&queue)) {
+  if (!list_is_empty(&queue)) {
     // Remove the process from the queue
     struct process * p = list_entry(list_dequeue(&queue), struct process, elem);
     // Execute the function
@@ -271,7 +271,6 @@ int8_t update_cursor (uint8_t prev_enc) {
   lcd_set_cursor(LCD_ROW(row));
   lcd_putc(CURSOR);
 
-  flags.enc_int = 0;
   return 0;
 }
 
