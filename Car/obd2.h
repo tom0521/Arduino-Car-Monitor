@@ -51,6 +51,8 @@
 #define OBD_FUEL_RAIL_PRESSURE  0x22
 #define OBD_FUEL_RAIL_GAUGE     0x23
 
+#define OBD_FUEL_TANK_LEVEL     0x2F
+
 #define OBD_PID_SUPPORT_3       0x40
 
 /* The OBD-II Data Frame */

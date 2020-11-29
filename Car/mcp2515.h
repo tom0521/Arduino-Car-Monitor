@@ -30,6 +30,14 @@
 #define TXB2CTRL    0x50        // Transmit Buffer 2 Control Register
 #define RXB0CTRL    0x60        // Receive Buffer 0 Control Register
 #define RXB1CTRL    0x70        // Reveive Buffer 1 Control Register
+#define RXF0SIDH    0x00        // Receive Buffer 0 SID High bit flags
+#define RXF0SIDL    0x01        // Receive Buffer 0 SID Low bit flags
+#define RXF1SIDH    0x04        // Receive Buffer 1 SID High bit flags
+#define RXF1SIDL    0x05        // Receive Buffer 1 SID Low bit flags
+#define RXM0SIDH    0x20        // Receive Buffer 0 SID High bit flags
+#define RXM0SIDL    0x21        // Receive Buffer 0 SID Low bit flags
+#define RXM1SIDH    0x24        // Receive Buffer 1 SID High bit flags
+#define RXM1SIDL    0x25        // Receive Buffer 1 SID Low bit flags
 
 /* * * * * * * * * * * * * * * */
 /*                             */
@@ -143,6 +151,24 @@
 #define RXRTR       3
 #define RXM0        5
 #define RXM1        6
+
+/* RXF(0:1)SIDH */
+#define SID3        0
+#define SID4        1
+#define SID5        2
+#define SID6        3
+#define SID7        4
+#define SID8        5
+#define SID9        6
+#define SID10       7
+
+/* RXF(0:1)SIDL */
+#define EID16       0
+#define EID17       1
+#define EIDE        3
+#define SID0        5
+#define SID1        6
+#define SID2        7
 
 /* * * * * * * * * * * * * * * */
 /*                             */

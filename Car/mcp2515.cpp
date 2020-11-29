@@ -45,10 +45,17 @@ bool mcp_init (uint8_t baud_prescaler) {
 
     // Set TXnRTS as inputs
     mcp_write(TXRTSCTRL, 0x0);
+    
+    // Only want to receive ECU responses
+    mcp_write(RXF0SIDH, (uint8_t)(CAN_ECU_RES >> 3));
+    mcp_write(RXF0SIDL, (uint8_t)(CAN_ECU_RES << 5));
+    mcp_write(RXM0SIDH, 0xFF);
+    mcp_write(RXM0SIDL, 0xE0);
 
-    // Turn off filters
-    mcp_write(RXB0CTRL, (1 << RXM1) | (1 << RXM0));
-    mcp_write(RXB1CTRL, (1 << RXM1) | (1 << RXM0));
+    mcp_write(RXF1SIDH, (uint8_t)(CAN_ECU_RES >> 3));
+    mcp_write(RXF1SIDL, (uint8_t)(CAN_ECU_RES << 5));
+    mcp_write(RXM1SIDH, 0xFF);
+    mcp_write(RXM1SIDL, 0xE0);
 
     // Enter Normal Mode
     mcp_write(CANCTRL, 0x0);

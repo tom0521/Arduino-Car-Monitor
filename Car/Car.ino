@@ -37,6 +37,14 @@ volatile uint8_t encoder = 0;
  */
 struct list queue;
 
+/* Values for calculating range */
+uint8_t vehicle_speed = 0;
+float init_fuel = 0,
+      fuel_1 = 0,
+      fuel_2 = 0;
+unsigned long time_1 = 0,
+              time_2 = 0;
+
 /**
  * Setup
  * 
@@ -46,10 +54,7 @@ struct list queue;
  *   3. Rotary Encoder LEDs
  *   4. LCD Screen
  *   5. CAN Bus connection
- *   
- * Checks:
- *   1. CAN Bus Connection
- *   2. Available OBD-II PIDs
+ *   6. Send catalyst
  */
 void setup() {
   // Start serial connection for debugging
@@ -58,7 +63,6 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up I/O pins...");
   /* Rotary Encoder */
   // Set the rotatry encoder button to be input no pull up resistor
   SET_INPUT(P_SW);
@@ -73,7 +77,7 @@ void setup() {
   SET_OUTPUT(G_LED);
   SET_OUTPUT(B_LED);
 
-  // /* LCD */
+  /* LCD */
   // Set Register Select pin as output
   SET_OUTPUT(P_RS);
   // Set enable pin as output
@@ -100,7 +104,6 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*       Rotary Encoder Button setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up button interrupt...");
   // Falling edge of INT1 generates interrupt
   EICRA |= (1 << ISC11);
   EICRA &= ~(1 << ISC10);
@@ -110,21 +113,14 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder A & B setup       */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up Encoder intrrupt...");
   // Enable interrupts on the rotary encoder A pin
   PCMSK0 |= (1 << PCINT0);
   // Enable PORTB Pin change interrupts
   PCICR |= (1 << PCIE0);
 
-
-  // Serial.println("Enabling global interrupts...");
-  // Turn on global interrupts
-  sei();
-
   /* * * * * * * * * * * * * * * * * * * * * */
   /*        Rotary Encoder LEDs Setup        */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Turning off the LEDs...");
   // Turn off all LEDs by setting them logical HIGH
   SET(R_LED);
   SET(G_LED);
@@ -133,36 +129,41 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 LCD setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up LCD...");
   lcd_init();
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 SPI setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up SPI interface...");
   // Initialize SPI
   spi_init();
   
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Serial.println("Setting up CAN interface...");
   // Rising edge of INT0 generates interrupt
-  EICRA |= (1 << ISC01);
-  EICRA |= (1 << ISC00);
-  // Enable interrupts for INT0
-  EIMSK |= (1 << INT0);
+  // EICRA |= (1 << ISC01) | (1 << ISC00);
+  // // Enable interrupts for INT0
+  // EIMSK |= (1 << INT0);
 
   // Initialize CAN-BUS communication
   if (mcp_init(0x01)) {
-    // Create the catalyst request
+    // Create the catalyst requests
     struct process * p = (struct process *) malloc(sizeof(*p));
+    // p->func = obd_request;
+    // p->arg = OBD_VEHICLE_SPEED;
+    // list_enqueue(&queue, &p->elem);
+    // p = (struct process *) malloc(sizeof(*p));
+    // p->func = obd_request;
+    // p->arg = OBD_FUEL_TANK_LEVEL;
+    // list_enqueue(&queue, &p->elem);
+    // p = (struct process *) malloc(sizeof(*p));
     p->func = obd_request;
     p->arg = OBD_ENGINE_SPEED;
     list_enqueue(&queue, &p->elem);
   }
 
-  // PIDs 0x5E, 0x0D, 0x2F, 0xA6 needed
+  // Turn on global interrupts
+  sei();
 }
 
 /**
@@ -192,6 +193,7 @@ void loop() {
 /* * * * * * * * * * * * * * * * * * * * * */
 /*          CAN Request Functions          */
 /* * * * * * * * * * * * * * * * * * * * * */
+
 /*
  * OBD Request
  * 
@@ -200,6 +202,7 @@ void loop() {
  * PID being the PID passed as an argument
  */
 int8_t obd_request (uint8_t pid) {
+  // Create the frame to be sent
   mcp_can_frame frame;
   frame.sid = CAN_ECU_REQ;
   frame.srr = 0;
@@ -211,9 +214,16 @@ int8_t obd_request (uint8_t pid) {
   frame.data[OBD_FRAME_MODE] = OBD_CUR_DATA;
   frame.data[OBD_FRAME_PID] = pid;
 
+  // Try to send the frame
   if (!mcp_tx_message(&frame)) {
     return -1;
   } else {
+    /** TODO: remove this */
+    // Create a process to read the data
+    struct process * p = (struct process *) malloc(sizeof(*p));
+    p->func = obd_response;
+    list_enqueue(&queue, &p->elem);
+
     return 0;
   }
 }
@@ -226,28 +236,56 @@ int8_t obd_request (uint8_t pid) {
  * OBD-II response.
  */
 int8_t obd_response (uint8_t aux) {
+  // Get space for the frame response
   mcp_can_frame frame;
 
+  // Try to get the frame
   if (!mcp_rx_message (&frame)) {
     return -1;
   }
 
+  // If this wasn't an ECU response, then
+  // the process should be re-added
+  // if (frame.sid != CAN_ECU_RES) {
+  //   return -1;
+  // }
+  // Handle the received data
   switch (frame.data[OBD_FRAME_PID])
   {
-  case OBD_ENGINE_SPEED: {
-    float engine_speed = ((256 * frame.data[OBD_FRAME_A]) + frame.data[OBD_FRAME_B]) / 4.f;
-    Serial.println(engine_speed);
-    break;
-  }
-  default:
-    // Unimplemented PID
-    Serial.println("Unimplemented PID");
-    // Don't want to re-queue an unimplemented pid
-    return 0;
-    break;
+    case OBD_ENGINE_SPEED: {
+      float engine_speed = ((256 * frame.data[OBD_FRAME_A]) + frame.data[OBD_FRAME_B]) / 4.f;
+      lcd_set_cursor(LCD_ROW(3));
+      lcd_print(engine_speed);
+      break;
+    }
+    case OBD_VEHICLE_SPEED: {
+      vehicle_speed = frame.data[OBD_FRAME_A];
+      lcd_set_cursor(LCD_ROW(1));
+      lcd_print(vehicle_speed);
+      break;
+    }
+    case OBD_FUEL_TANK_LEVEL: {
+      time_1 = time_2;
+      fuel_1 = fuel_2;
+      time_2 = millis();
+      fuel_2 = (100 / 255.f) * frame.data[OBD_FRAME_A];
+      lcd_set_cursor(LCD_ROW(2));
+      lcd_print(fuel_2);
+      lcd_putc('%');
+      struct process * p = (struct process *) malloc(sizeof(*p));
+      p->func = calc_range;
+      list_enqueue (&queue, &p->elem);
+      break;
+    }
+    default: {
+      // Unimplemented PID
+      // Don't want to re-queue an unimplemented pid
+      /** TODO: return -1; */
+      return -1;
+    }
   }
 
-  // Re-add the pid to the job queue
+  // Re-add the pid request to the job queue
   struct process * p = (struct process *) malloc(sizeof(*p));
   p->func = obd_request;
   p->arg = frame.data[OBD_FRAME_PID];
@@ -256,27 +294,31 @@ int8_t obd_response (uint8_t aux) {
   return 0;
 }
 
-// Print the encoder to the screen
-int8_t print_encoder (uint8_t saved_enc) {
-  // lcd_print (encoder);
-  return 0;
-}
+/* * * * * * * * * * * * * * * * * * * * * */
+/*          Miscellaneous Functions        */
+/* * * * * * * * * * * * * * * * * * * * * */
 
-int8_t update_cursor (uint8_t prev_enc) {
-  uint8_t row = prev_enc % 4;
-  lcd_set_cursor(LCD_ROW(row));
-  lcd_putc(' ');
+int8_t calc_range (uint8_t aux) {
+  lcd_set_cursor(LCD_ROW(0));
+  lcd_print("Range: ");
 
-  row = encoder % 4;
-  lcd_set_cursor(LCD_ROW(row));
-  lcd_putc(CURSOR);
+  float delta_time = (time_2 - time_1) * 3600000,
+        delta_fuel = fuel_2 - fuel_1;
 
-  return 0;
+  if (time_1 == 0 || delta_fuel == 0) {
+    lcd_print("---");
+    init_fuel = fuel_2;
+  } else {
+
+    float range = (-init_fuel) * ((vehicle_speed / delta_time) / (delta_fuel));
+    lcd_print(range);
+  }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
 /*        Interrupt Service Routines       */
 /* * * * * * * * * * * * * * * * * * * * * */
+
 /**
  * Interrup service routine for MCP2515.
  * This is called whenever the pin is driven
@@ -286,10 +328,11 @@ int8_t update_cursor (uint8_t prev_enc) {
  * queue to process received messages
  */
 ISR(INT0_vect) {
+  /** TODO: FIX THIS */
   // Add a get message process to the job queue
-  struct process * p = (struct process *) malloc(sizeof(*p));
-  p->func = obd_response;
-  list_enqueue(&queue, &p->elem);
+  // struct process * p = (struct process *) malloc(sizeof(*p));
+  // p->func = obd_response;
+  // list_enqueue(&queue, &p->elem);
 }
 
 /*
