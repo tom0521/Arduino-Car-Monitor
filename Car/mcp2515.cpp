@@ -90,9 +90,9 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     /** TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if (rx_byte & 0x01) { // RXB0
+    if (rx_byte & (1 << RX0IF)) { // RXB0
         nm = 0x00;
-    } else if (rx_byte & 0x02) { // RXB1
+    } else if (rx_byte & (1 << RX1IF)) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -160,11 +160,11 @@ bool mcp_tx_message (mcp_can_frame * frame) {
     
     // Load TX Buffer address flags
     uint8_t abc;
-    if ((status & 0x04) == 0) { // TXB0
+    if ((status & (1 << TX0REQ)) == 0) { // TXB0
         abc = 0x00;
-    } else if ((status & 0x10) == 0) { // TXB1
+    } else if ((status & (1 << TX1REQ)) == 0) { // TXB1
         abc = 0x02;
-    } else if ((status & 0x40) == 0) { // TXB2
+    } else if ((status & (1 << TX2REQ)) == 0) { // TXB2
         abc = 0x04;
     } else { // All buffers full
         return false;

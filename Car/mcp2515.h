@@ -39,6 +39,17 @@
 #define RXM1SIDH    0x24        // Receive Buffer 1 SID High bit mask
 #define RXM1SIDL    0x25        // Receive Buffer 1 SID Low bit mask
 
+/* Status Bits */
+#define RX0IF       0
+#define RX1IF       1
+#define TX0REQ      2
+#define TX0IF       3
+#define TX1REQ      4
+#define TX1IF       5
+#define TX2REQ      6
+#define TX2IF       7
+
+
 /* * * * * * * * * * * * * * * */
 /*                             */
 /*    Register Bit Positions   */
