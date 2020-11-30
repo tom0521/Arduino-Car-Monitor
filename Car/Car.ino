@@ -290,7 +290,7 @@ int8_t calc_range (uint8_t aux) {
   float delta_time = (time_2 - time_1) * 3600000,
         delta_fuel = fuel_2 - fuel_1;
 
-  if (time_1 == 0 || delta_fuel == 0) {
+  if (time_1 == 0 || delta_fuel == 0 || delta_time <= 0) {
     lcd_print("---");
     init_fuel = fuel_2;
   } else {

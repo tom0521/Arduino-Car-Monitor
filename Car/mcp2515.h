@@ -34,10 +34,10 @@
 #define RXF0SIDL    0x01        // Receive Buffer 0 SID Low bit flags
 #define RXF1SIDH    0x04        // Receive Buffer 1 SID High bit flags
 #define RXF1SIDL    0x05        // Receive Buffer 1 SID Low bit flags
-#define RXM0SIDH    0x20        // Receive Buffer 0 SID High bit flags
-#define RXM0SIDL    0x21        // Receive Buffer 0 SID Low bit flags
-#define RXM1SIDH    0x24        // Receive Buffer 1 SID High bit flags
-#define RXM1SIDL    0x25        // Receive Buffer 1 SID Low bit flags
+#define RXM0SIDH    0x20        // Receive Buffer 0 SID High bit mask
+#define RXM0SIDL    0x21        // Receive Buffer 0 SID Low bit mask
+#define RXM1SIDH    0x24        // Receive Buffer 1 SID High bit mask
+#define RXM1SIDL    0x25        // Receive Buffer 1 SID Low bit mask
 
 /* * * * * * * * * * * * * * * */
 /*                             */
