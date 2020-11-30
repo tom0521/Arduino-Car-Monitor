@@ -140,23 +140,24 @@ void setup() {
   /* * * * * * * * * * * * * * * * * * * * * */
   /*               CAN-BUS Setup             */
   /* * * * * * * * * * * * * * * * * * * * * */
-  // Rising edge of INT0 generates interrupt
-  // EICRA |= (1 << ISC01) | (1 << ISC00);
-  // // Enable interrupts for INT0
-  // EIMSK |= (1 << INT0);
+  // Falling edge of INT0 generates interrupt
+  EICRA |= (1 << ISC01);
+  EICRA &= ~(1 << ISC00);
+  // Enable interrupts for INT0
+  EIMSK |= (1 << INT0);
 
   // Initialize CAN-BUS communication
   if (mcp_init(0x01)) {
     // Create the catalyst requests
     struct process * p = (struct process *) malloc(sizeof(*p));
-    // p->func = obd_request;
-    // p->arg = OBD_VEHICLE_SPEED;
-    // list_enqueue(&queue, &p->elem);
-    // p = (struct process *) malloc(sizeof(*p));
-    // p->func = obd_request;
-    // p->arg = OBD_FUEL_TANK_LEVEL;
-    // list_enqueue(&queue, &p->elem);
-    // p = (struct process *) malloc(sizeof(*p));
+    p->func = obd_request;
+    p->arg = OBD_VEHICLE_SPEED;
+    list_enqueue(&queue, &p->elem);
+    p = (struct process *) malloc(sizeof(*p));
+    p->func = obd_request;
+    p->arg = OBD_FUEL_TANK_LEVEL;
+    list_enqueue(&queue, &p->elem);
+    p = (struct process *) malloc(sizeof(*p));
     p->func = obd_request;
     p->arg = OBD_ENGINE_SPEED;
     list_enqueue(&queue, &p->elem);
@@ -214,18 +215,8 @@ int8_t obd_request (uint8_t pid) {
   frame.data[OBD_FRAME_MODE] = OBD_CUR_DATA;
   frame.data[OBD_FRAME_PID] = pid;
 
-  // Try to send the frame
-  if (!mcp_tx_message(&frame)) {
-    return -1;
-  } else {
-    /** TODO: remove this */
-    // Create a process to read the data
-    struct process * p = (struct process *) malloc(sizeof(*p));
-    p->func = obd_response;
-    list_enqueue(&queue, &p->elem);
-
-    return 0;
-  }
+  // Try to send the frame and return the result
+  return (mcp_tx_message(&frame)) ? 0 : -1;
 }
 
 /*
@@ -235,61 +226,55 @@ int8_t obd_request (uint8_t pid) {
  * MCP2515. This frame contains an
  * OBD-II response.
  */
-int8_t obd_response (uint8_t aux) {
+int8_t obd_response (uint8_t buf) {
   // Get space for the frame response
   mcp_can_frame frame;
 
-  // Try to get the frame
-  if (!mcp_rx_message (&frame)) {
-    return -1;
-  }
+  // Handle messages while there are
+  // still any to be handled
+  while (mcp_rx_message (&frame)) {
+    // Handle the received data
+    switch (frame.data[OBD_FRAME_PID])
+    {
+      case OBD_ENGINE_SPEED: {
+        float engine_speed = ((256 * frame.data[OBD_FRAME_A]) + frame.data[OBD_FRAME_B]) / 4.f;
+        lcd_set_cursor(LCD_ROW(3));
+        lcd_print(engine_speed);
+        break;
+      }
+      case OBD_VEHICLE_SPEED: {
+        vehicle_speed = frame.data[OBD_FRAME_A];
+        lcd_set_cursor(LCD_ROW(1));
+        lcd_print(vehicle_speed);
+        break;
+      }
+      case OBD_FUEL_TANK_LEVEL: {
+        time_1 = time_2;
+        fuel_1 = fuel_2;
+        time_2 = millis();
+        fuel_2 = (100 / 255.f) * frame.data[OBD_FRAME_A];
+        lcd_set_cursor(LCD_ROW(2));
+        lcd_print(fuel_2); lcd_putc('%');
 
-  // If this wasn't an ECU response, then
-  // the process should be re-added
-  // if (frame.sid != CAN_ECU_RES) {
-  //   return -1;
-  // }
-  // Handle the received data
-  switch (frame.data[OBD_FRAME_PID])
-  {
-    case OBD_ENGINE_SPEED: {
-      float engine_speed = ((256 * frame.data[OBD_FRAME_A]) + frame.data[OBD_FRAME_B]) / 4.f;
-      lcd_set_cursor(LCD_ROW(3));
-      lcd_print(engine_speed);
-      break;
+        // Create a process to calculate the range
+        struct process * p = (struct process *) malloc(sizeof(*p));
+        p->func = calc_range;
+        list_enqueue (&queue, &p->elem);
+        break;
+      }
+      default: {
+        // Unimplemented PID
+        // Don't want to re-queue an unimplemented pid
+        return -1;
+      }
     }
-    case OBD_VEHICLE_SPEED: {
-      vehicle_speed = frame.data[OBD_FRAME_A];
-      lcd_set_cursor(LCD_ROW(1));
-      lcd_print(vehicle_speed);
-      break;
-    }
-    case OBD_FUEL_TANK_LEVEL: {
-      time_1 = time_2;
-      fuel_1 = fuel_2;
-      time_2 = millis();
-      fuel_2 = (100 / 255.f) * frame.data[OBD_FRAME_A];
-      lcd_set_cursor(LCD_ROW(2));
-      lcd_print(fuel_2);
-      lcd_putc('%');
-      struct process * p = (struct process *) malloc(sizeof(*p));
-      p->func = calc_range;
-      list_enqueue (&queue, &p->elem);
-      break;
-    }
-    default: {
-      // Unimplemented PID
-      // Don't want to re-queue an unimplemented pid
-      /** TODO: return -1; */
-      return -1;
-    }
-  }
 
-  // Re-add the pid request to the job queue
-  struct process * p = (struct process *) malloc(sizeof(*p));
-  p->func = obd_request;
-  p->arg = frame.data[OBD_FRAME_PID];
-  list_enqueue (&queue, &p->elem);
+    // Re-add the pid request to the job queue
+    struct process * p = (struct process *) malloc(sizeof(*p));
+    p->func = obd_request;
+    p->arg = frame.data[OBD_FRAME_PID];
+    list_enqueue (&queue, &p->elem);
+  }
 
   return 0;
 }
@@ -328,11 +313,10 @@ int8_t calc_range (uint8_t aux) {
  * queue to process received messages
  */
 ISR(INT0_vect) {
-  /** TODO: FIX THIS */
   // Add a get message process to the job queue
-  // struct process * p = (struct process *) malloc(sizeof(*p));
-  // p->func = obd_response;
-  // list_enqueue(&queue, &p->elem);
+  struct process * p = (struct process *) malloc(sizeof(*p));
+  p->func = obd_response;
+  list_enqueue(&queue, &p->elem);
 }
 
 /*

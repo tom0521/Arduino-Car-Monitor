@@ -199,7 +199,7 @@ typedef struct {
 /* * * * * * * * * * * * * * * */
 
 bool mcp_init (uint8_t baud_prescaler);
-bool mcp_check_message ();
+bool mcp_message_waiting ();
 bool mcp_rx_message (mcp_can_frame * frame);
 bool mcp_tx_message (mcp_can_frame * frame);
 uint8_t mcp_read (uint8_t addr);

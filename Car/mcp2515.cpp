@@ -63,13 +63,12 @@ bool mcp_init (uint8_t baud_prescaler) {
     return true;
 }
 
-/* TODO: Use interrupt to receive message */
 /*
- * MCP2515 Check Message
+ * MCP2515 Message Waiting
  * 
  * Checks if the interrupt pins is set LOW
  */
-bool mcp_check_message () {
+bool mcp_message_waiting () {
     /* Interrupt pin LOW means a message is waiting */
     return (!IS_SET(MCP_INT));
 }
@@ -86,14 +85,14 @@ bool mcp_rx_message (mcp_can_frame * frame) {
     uint8_t rx_byte;
 
     //Get the status of RX/TX buffers
-    rx_byte = mcp_rx_status();
+    rx_byte = mcp_read_status();
 
-    /* TODO: double check bit positions */
+    /** TODO: double check bit positions */
     // Read RX Buffer address flags
     uint8_t nm;
-    if (rx_byte & (1 << 6)) { // RXB0
+    if (rx_byte & 0x01) { // RXB0
         nm = 0x00;
-    } else if (rx_byte & (1 << 7)) { // RXB1
+    } else if (rx_byte & 0x02) { // RXB1
         nm = 0x02;
     } else { // There are no messages waiting
         return false;
@@ -159,7 +158,6 @@ bool mcp_tx_message (mcp_can_frame * frame) {
     //Get the status of RX/TX buffers
     uint8_t status = mcp_read_status();
     
-    /* TODO: double check bit positions */
     // Load TX Buffer address flags
     uint8_t abc;
     if ((status & 0x04) == 0) { // TXB0
