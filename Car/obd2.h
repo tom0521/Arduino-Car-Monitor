@@ -53,7 +53,11 @@
 
 #define OBD_FUEL_TANK_LEVEL     0x2F
 
+#define OBD_DIST_CODE_CLR       0x31
+
 #define OBD_PID_SUPPORT_3       0x40
+
+#define OBD_ODOMETER            0xA6
 
 /* The OBD-II Data Frame */
 #define OBD_FRAME_LENGTH      0   // OBD-II data length
@@ -63,5 +67,12 @@
 #define OBD_FRAME_B           4   // OBD-II data B
 #define OBD_FRAME_C           5   // OBD-II data C
 #define OBD_FRAME_D           6   // OBD-II data D
+
+/* * * * * * * * * * * * * * * */
+/*                             */
+/*    Function Definitions     */
+/*                             */
+/* * * * * * * * * * * * * * * */
+float obd_read_pid (uint8_t pid);
 
 #endif // OBD2_H

@@ -192,7 +192,7 @@ void lcd_print (float f) {
     // Create a buffer to hold the string
     char buf[10];
     // Convert the float to a string
-    dtostrf(f,5,1,buf);
+    dtostrf(f,5,2,buf);
     // Print the string
     lcd_print(buf);
 }
