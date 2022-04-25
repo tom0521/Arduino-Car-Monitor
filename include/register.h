@@ -1,9 +1,6 @@
 #ifndef REGISTER_H
 #define REGISTER_H
 
-#define true    1
-#define false   0
-
 /* Wrapper functions */
 #define RESET(x)        _XRS(x)     // Reset the given PORT bit
 #define SET(x)          _XS(x)      // Set the given PORT bit
@@ -16,11 +13,11 @@
 #define PIN(x)      _pin(x)
 
 /* Register Bit operations */
-#define _XRS(x,y)   PORT(x) &= ~(1 << y)
-#define _XS(x,y)    PORT(x) |=  (1 << y)
-#define _XR(x,y)    (PIN(x) & (1 << y)) != 0
-#define _XSI(x,y)   DDR(x) &= ~(1 << y)
-#define _XSO(x,y)   DDR(x) |= (1 << y)
+#define _XRS(x,y)   (PORT(x) &= ~(1 << y))
+#define _XS(x,y)    (PORT(x) |=  (1 << y))
+#define _XSI(x,y)   (DDR(x) &= ~(1 << y))
+#define _XSO(x,y)   (DDR(x) |= (1 << y))
+#define _XR(x,y)    ((PIN(x) & (1 << y)) != 0)
 
 /* Register Names */
 #define _port(x)    PORT ## x

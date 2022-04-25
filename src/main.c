@@ -1,11 +1,6 @@
-/*
-  Car Arduino Project
-
-  an attempt to not use libraries and actually read datasheets
-  
-*/
-
-#include <SD.h>
+#include <avr/interrupt.h>
+#include <avr/io.h>
+#include <stdbool.h>
 
 #include "lcd.h"
 #include "list.h"
@@ -44,9 +39,6 @@ struct list queue;
  *   6. Send catalyst
  */
 void setup() {
-  // Start serial connection for debugging
-  Serial.begin(9600);
-
   /* * * * * * * * * * * * * * * * * * * * * */
   /*                 I/O setup               */
   /* * * * * * * * * * * * * * * * * * * * * */
@@ -63,30 +55,6 @@ void setup() {
   SET_OUTPUT(R_LED);
   SET_OUTPUT(G_LED);
   SET_OUTPUT(B_LED);
-
-  /* LCD */
-  // Set Register Select pin as output
-  SET_OUTPUT(P_RS);
-  // Set enable pin as output
-  SET_OUTPUT(P_EN);
-  // Set all the data pins as output
-  // Using 4-bit mode so only using D4-D7
-  SET_OUTPUT(P_D4);
-  SET_OUTPUT(P_D5);
-  SET_OUTPUT(P_D6);
-  SET_OUTPUT(P_D7);
-
-  /* MCP2515 */
-  // Set the Chip select HIGH to not send
-  // messages when spi is set up
-  SET(MCP_CS);
-  // Set the MCP2515 Chip Select pin as output
-  SET_OUTPUT(MCP_CS);
-  // Set up MCP2515 interrupt pin as input pin
-  SET_INPUT(MCP_INT);
-  // Enable the pull up resistor
-  SET(MCP_INT);
-  
 
   /* * * * * * * * * * * * * * * * * * * * * */
   /*       Rotary Encoder Button setup       */
@@ -137,13 +105,13 @@ void setup() {
   if (!mcp_init(0x01)) {
     // Do something because it failed
   }
-
+  /*
   if (!SD.begin(9)) {
     // Do something becuase ot failed
     Serial.println("SD Failed");
   } else {
     Serial.println("SD SUCC");
-  }
+  }*/
 
   // Turn on global interrupts
   sei();
@@ -178,13 +146,13 @@ void loop() {
   // }
   // // Get the miles traveled (roughly)
   // miles += (speed * (d_time / 3.6e6));
-  double miles = obd_read_pid(OBD_DIST_CODE_CLR);
+  double miles = obd2_read_pid(OBD2_DIST_CODE_CLR);
   if (init_miles == 0) {
     init_miles = miles;
   }
   miles -= init_miles;
   // Read the Fuel %
-  double fuel = obd_read_pid(OBD_FUEL_TANK_LEVEL);
+  double fuel = obd2_read_pid(OBD2_FUEL_TANK_LEVEL);
 
 
   ++N;
@@ -200,18 +168,18 @@ void loop() {
   double range = b - miles;
   if (range > 0 && range < 500) {
     lcd_set_cursor(LCD_ROW(0)+7);
-    lcd_print(range);
+    lcd_printf(range);
   }
   // lcd_set_cursor(LCD_ROW(1));
   // lcd_print(speed); lcd_print(" mph");
   lcd_set_cursor(LCD_ROW(2));
-  lcd_print(fuel); lcd_print("%");
+  lcd_printf(fuel); lcd_print("%");
   lcd_set_cursor(LCD_ROW(3));
-  lcd_print(miles); lcd_print(" miles");
+  lcd_printf(miles); lcd_print(" miles");
 
-  File log = SD.open("fuel.csv", FILE_WRITE);
+  /* File log = SD.open("fuel.csv", FILE_WRITE);
   log.print(fuel); log.print(','); log.println(miles);
-  log.close();
+  log.close(); */
 }
 
 /* * * * * * * * * * * * * * * * * * * * * */
@@ -226,13 +194,13 @@ void loop() {
  * Once called, a process will be added to the
  * queue to process received messages
  */
-ISR(INT0_vect) {
+//ISR(INT0_vect) {
   // Add a get message process to the job queue
   /** TODO: Need semaphore or some kind of synchronization */
   // struct process * p = (struct process *) malloc(sizeof(*p));
   // p->func = obd_response;
   // list_enqueue(&queue, &p->elem);
-}
+//}
 
 /*
  * Interrupt service routine for the rotary
@@ -242,10 +210,10 @@ ISR(INT0_vect) {
  * Upon being called, this function will
  * reset the encoder variable back to zero.
  */
-ISR(INT1_vect) {
+/*ISR(INT1_vect) {
   // Add a select handler to the queue
   encoder = 0;
-}
+}*/
 
 /*
  * Interrupt service routine for pin changes
@@ -256,7 +224,7 @@ ISR(INT1_vect) {
  * positions, this function will increment or
  * decrement the encoder variable.
  */
-ISR(PCINT0_vect) {
+/*ISR(PCINT0_vect) {
   static uint8_t rotary_state = 0;
   rotary_state <<= 2;
   rotary_state |= ((PIND >> 6) & 0x2) | ((PINB >> 0) & 0x1);
@@ -268,4 +236,14 @@ ISR(PCINT0_vect) {
   else if (rotary_state == 0x3) {
     --encoder;
   }
+}*/
+
+void main() {
+    /* Initialize I/O */
+    /* LCD */
+    /* Rotary Encoder */
+    /* MCP2515 */
+    setup();
+    for ( ; ; )
+        loop();
 }

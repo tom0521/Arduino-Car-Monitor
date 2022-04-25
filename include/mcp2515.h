@@ -1,5 +1,7 @@
 #ifndef MCP2515_H
-#define MCP2515_J
+#define MCP2515_H
+
+#include <stdbool.h>
 
 /* Instructions */
 #define MCP_RESET           0xC0    // Reinitialize the internal registers and set the configuration mode

@@ -1,6 +1,7 @@
 #ifndef PINS_H
 #define PINS_H
 
+#define LCD_4BIT
                         // Digital Pins:
 /* Rotary Encoder Pins */
 #define P_SW    D,3     // Pin 3
@@ -11,12 +12,12 @@
 #define P_B     B,0     // Pin 8
 
 /* LCD Pins */
-#define P_RS    C,0     // Pin 14
-#define P_EN    C,1     // Pin 15
-#define P_D4    C,2     // Pin 16
-#define P_D5    C,3     // Pin 17
-#define P_D6    C,4     // Pin 18
-#define P_D7    C,5     // Pin 19
+#define LCD_RS    C,0   // Pin 14
+#define LCD_EN    C,1   // Pin 15
+#define LCD_D4    C,2   // Pin 16
+#define LCD_D5    C,3   // Pin 17
+#define LCD_D6    C,4   // Pin 18
+#define LCD_D7    C,5   // Pin 19
 
 /* SPI Pins */
 #define MCP_CS  B,2     // Pin 10
