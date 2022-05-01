@@ -1,5 +1,6 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <util/delay.h>
 #include <stdbool.h>
 
 #include "encoder.h"
@@ -24,28 +25,31 @@ void print_error (uint8_t error) {
 void main() {
   float speed;
   float fuel_consumption;
-  float km_per_liter;
+  float mpg;
 
   /* SETUP */
   lcd_init();
   encoder_init();
   if (!obd2_init())
     print_error(SPI_ERR);
-  
+
   /* Global interrupts on */
   sei();
   
   for ( ; ; ) {
-    if ((speed = obd2_read_pid(OBD2_VEHICLE_SPEED)) == -1) {
+    if ((speed = obd2_read_pid(OBD2_VEHICLE_SPEED) * 0.6213712f) == -1) {
       print_error(SPEED_ERR);
       break;
     }
-    if ((fuel_consumption = obd2_read_pid(OBD2_ENGINE_FUEL_RATE)) == -1) {
+    if ((fuel_consumption =
+              obd2_read_pid(OBD2_ENGINE_FUEL_RATE) * 0.2641729f) == -1) {
       print_error(FUEL_ERR);
       break;
     }
-    km_per_liter = fuel_consumption ? speed / fuel_consumption : 0.0; 
-    lcd_set_cursor(LCD_POS(0,0));
-    lcd_sprintf("%3u km/L", (int) km_per_liter);
+    mpg = fuel_consumption ? speed / fuel_consumption : 0.0; 
+    // Center it on the screen
+    lcd_set_cursor(LCD_POS(0,7));
+    lcd_sprintf("%3u mpg", (int) mpg);
+    _delay_ms(100);
   }
 }

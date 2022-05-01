@@ -4,15 +4,20 @@
 #include <stdlib.h>
 #include "pins.h"
 #include "register.h"
+#include "util.h"
 #include "lcd.h"
 
-#define LCD_LEFT_JUSTIFY    0b10000000
-#define LCD_SIGN            0b01000000
-#define LCD_BLANK           0b00100000
-#define LCD_POUND           0b00010000
-#define LCD_ZERO_PADDING    0b00001000
-#define LCD_UPPERCASE       0b00000100
-#define LCD_SPECIFIER       0b00000001
+/* * * * * * * * * * * * * * * */
+/*      LCD Printf flags       */
+/* * * * * * * * * * * * * * * */
+#define LCD_LEFT_JUSTIFY    0x80
+#define LCD_SIGN            0x40
+#define LCD_BLANK           0x20
+#define LCD_POUND           0x10
+#define LCD_ZERO_PADDING    0x08
+#define LCD_UPPERCASE       0x04
+
+#define LCD_SPECIFIER       0x01
 
 const uint8_t int_nybles = sizeof(int) * 2;
 /*
@@ -235,7 +240,7 @@ void lcd_printu (unsigned int d, uint8_t width) {
   uint8_t i;
   uint8_t length;
 
-  for (i = 5; (i > 0) && d; --i) {
+  for (i = 5; i > 0 && (d | i == 5); --i) {
     buff[i-1] = 0x30 + (d % 10);
     d /= 10;
   }
@@ -257,27 +262,24 @@ void lcd_printu (unsigned int d, uint8_t width) {
  * hexadecimal
  */
 void lcd_printx (unsigned int x, uint8_t width, uint8_t flags) {
-  uint8_t i;
-  uint8_t length;
+  uint8_t  *ptr;
+  uint16_t hex;
 
   // Set the Register Select pin for
   // writing data to DDRAM
   SET(LCD_RS);
-  // Ignore leading zeros for now
-  for (i = 0; (i < int_nybles-1) && !(x & 0xF<<(int_nybles-1)*4); ++i) 
-      x <<= 4;
   
-  // Print the padding
-  for (length = 0; length + int_nybles - i < width; ++length)
-    lcd_send_byte(' ');
+  if (flags & LCD_POUND) {
+    lcd_send_byte('0');
+    lcd_send_byte((flags & LCD_UPPERCASE) ? 'X' : 'x');
+  }
+  // TODO: padding
 
-  // Print the hex value
-  for ( ; i < int_nybles; ++i) {
-    // Convert the highest nyble to ACII and print
-    lcd_send_byte((uint8_t)((x >> (int_nybles-1) * 4) + 
-                          (((x >> (int_nybles-1) * 4) > 9) ? 
-                          ((flags & LCD_UPPERCASE) ? 0x37 : 0x57) : 0x30)));
-    x <<= 4;
+  // Loop through each byte of the integer (Little Endian)
+  for (ptr = (uint8_t *)&x + sizeof(int) - 1; ptr >= (uint8_t *)&x; --ptr) {
+    hex = hex2ascii(*ptr, flags & LCD_UPPERCASE);
+    lcd_send_byte((uint8_t)(hex>>8));
+    lcd_send_byte((uint8_t)(hex&0xFF));
   }
 }
 
@@ -309,6 +311,9 @@ void lcd_sprintf (const char *format, ...) {
           case '7':
           case '8':
           case '9': width = (width * 10) + (*ptr) - 0x30;
+                    break;
+          case 'd': 
+          case 'i': lcd_printx(va_arg(ap, int), width, flags);
                     break;
           case 'u': lcd_printu(va_arg(ap, unsigned int), width);
                     flags |= LCD_SPECIFIER;
