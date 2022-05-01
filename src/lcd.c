@@ -7,9 +7,6 @@
 #include "util.h"
 #include "lcd.h"
 
-/* * * * * * * * * * * * * * * */
-/*      LCD Printf flags       */
-/* * * * * * * * * * * * * * * */
 #define LCD_LEFT_JUSTIFY    0x80
 #define LCD_SIGN            0x40
 #define LCD_BLANK           0x20
@@ -17,7 +14,11 @@
 #define LCD_ZERO_PADDING    0x08
 #define LCD_UPPERCASE       0x04
 
-#define LCD_SPECIFIER       0x01
+#define LCD_PRINT_FLAGS       0x80
+#define LCD_PRINT_WIDTH       0x40
+#define LCD_PRINT_PRECISION   0x20
+#define LCD_PRINT_LENGTH      0x10
+#define LCD_PRINT_SPECIFIER   0x08
 
 const uint8_t int_nybles = sizeof(int) * 2;
 /*
@@ -291,19 +292,41 @@ void lcd_printx (unsigned int x, uint8_t width, uint8_t flags) {
  */
 void lcd_sprintf (const char *format, ...) {
   va_list ap;
-  uint8_t width;
   uint8_t flags;
+  uint8_t width;
+  uint8_t precision;
+  uint8_t state;
   
   va_start(ap, format);
   for (char *ptr = (char *)format; *ptr != '\0'; ++ptr) {
     if (*ptr == '%') {
-      flags = 0;
+      state = LCD_PRINT_FLAGS;
+      flags = 0x0;
       width = 0;
-      while (!(flags & LCD_SPECIFIER)) {
+      while (!(state & LCD_PRINT_SPECIFIER)) {
         switch (*(++ptr)) {
-          case '#': flags |= LCD_POUND;
+          case '-': if (state & LCD_PRINT_FLAGS) {
+                      flags |= LCD_LEFT_JUSTIFY;
+                      break;
+                    }
+          case '+': if (state & LCD_PRINT_FLAGS) {
+                      flags |= LCD_SIGN;
+                      break;
+                    }
+          case ' ': if (state & LCD_PRINT_FLAGS) {
+                      flags |= LCD_BLANK;
+                      break;
+                    }
+          case '#': if (state & LCD_PRINT_FLAGS) flags |= LCD_POUND;
+                    else state = LCD_PRINT_SPECIFIER;
                     break;
-          case '0':
+          case '.': state = (state & (LCD_PRINT_FLAGS | LCD_PRINT_WIDTH))
+                      ? LCD_PRINT_PRECISION : LCD_PRINT_SPECIFIER;
+                    break;
+          case '0': if (state & LCD_PRINT_FLAGS) {
+                      flags |= LCD_ZERO_PADDING;
+                      break;
+                    }
           case '1':
           case '2':
           case '3':
@@ -312,20 +335,26 @@ void lcd_sprintf (const char *format, ...) {
           case '6':
           case '7':
           case '8':
-          case '9': width = (width * 10) + (*ptr) - 0x30;
+          case '9': if (state & (LCD_PRINT_WIDTH | LCD_PRINT_FLAGS)) {
+                      width = (width * 10) + (*ptr) - 0x30;
+                      state = LCD_PRINT_WIDTH;
+                    } else if (state & LCD_PRINT_PRECISION) {
+                      precision = (precision * 10) + (*ptr) - 0x30;
+                    } else
+                      state = LCD_PRINT_SPECIFIER;
                     break;
           case 'd': 
           case 'i': lcd_printx(va_arg(ap, int), width, flags);
+                    state = LCD_PRINT_SPECIFIER;
                     break;
           case 'u': lcd_printu(va_arg(ap, unsigned int), width);
-                    flags |= LCD_SPECIFIER;
+                    state = LCD_PRINT_SPECIFIER;
                     break;
           case 'X': flags |= LCD_UPPERCASE;
           case 'x': lcd_printx(va_arg(ap, unsigned int), width, flags);
-                    flags |= LCD_SPECIFIER;
+                    state = LCD_PRINT_SPECIFIER;
                     break;
-          default:  lcd_putc(*ptr);
-                    flags |= LCD_SPECIFIER;
+          default:  state = LCD_PRINT_SPECIFIER;
                     break;
         }
       }
