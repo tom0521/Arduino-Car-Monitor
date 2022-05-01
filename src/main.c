@@ -19,7 +19,7 @@
 /* Print error code to screen */
 void print_error (uint8_t error) {
   lcd_set_cursor(LCD_POS(3,16));
-  lcd_sprintf("0x%x",error);
+  lcd_sprintf("%#x",error);
 }
 
 void main() {
@@ -35,7 +35,7 @@ void main() {
 
   /* Global interrupts on */
   sei();
-  
+
   for ( ; ; ) {
     if ((speed = obd2_read_pid(OBD2_VEHICLE_SPEED) * 0.6213712f) == -1) {
       print_error(SPEED_ERR);

@@ -301,6 +301,8 @@ void lcd_sprintf (const char *format, ...) {
       width = 0;
       while (!(flags & LCD_SPECIFIER)) {
         switch (*(++ptr)) {
+          case '#': flags |= LCD_POUND;
+                    break;
           case '0':
           case '1':
           case '2':
