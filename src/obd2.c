@@ -3,6 +3,14 @@
 #include "mcp2515.h"
 
 /*
+ * Initialize OBD-II
+ *
+ */
+bool obd2_init() {
+    return mcp_init(0x01);
+}
+
+/*
  * OBD2 Request
  * 
  * Sends a can frame to MCP2515. The CAN
@@ -36,7 +44,8 @@ float obd2_read_pid (uint8_t pid) {
   switch (frame.data[OBD2_FRAME_PID])
   {
     case OBD2_ENGINE_SPEED:
-      return ((256 * frame.data[OBD2_FRAME_A]) + frame.data[OBD2_FRAME_B]) / 4.f;
+      return ((256 * frame.data[OBD2_FRAME_A]) + 
+                frame.data[OBD2_FRAME_B]) / 4.f;
     case OBD2_VEHICLE_SPEED:
       return frame.data[OBD2_FRAME_A] * 0.62137119f;
     case OBD2_FUEL_TANK_LEVEL:
@@ -44,6 +53,9 @@ float obd2_read_pid (uint8_t pid) {
     case OBD2_DIST_CODE_CLR:
       return ((frame.data[OBD2_FRAME_A] << 8) + 
                 frame.data[OBD2_FRAME_B]) * 0.62137119f;
+    case OBD2_ENGINE_FUEL_RATE:
+      return ((256 * frame.data[OBD2_FRAME_A]) + 
+                frame.data[OBD2_FRAME_B]) / 20.f;
     default:
       return -1;
   }

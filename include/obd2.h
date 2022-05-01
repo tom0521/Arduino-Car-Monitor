@@ -1,6 +1,8 @@
 #ifndef OBD2_H
 #define OBD2_H
 
+#include <stdbool.h>
+
 /* OBD-II Modes */
 #define OBD2_CUR_DATA    0x01    // Get the current data
 #define OBD2_FREEZE      0x02    // Freeze-frame data
@@ -57,6 +59,8 @@
 
 #define OBD2_PID_SUPPORT_3       0x40
 
+#define OBD2_ENGINE_FUEL_RATE    0x5E
+
 #define OBD2_ODOMETER            0xA6
 
 /* The OBD-II Data Frame */
@@ -73,6 +77,7 @@
 /*    Function Definitions     */
 /*                             */
 /* * * * * * * * * * * * * * * */
+bool obd2_init ();
 float obd2_read_pid (uint8_t pid);
 
 #endif // OBD2_H

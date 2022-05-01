@@ -12,11 +12,11 @@
  */
 void spi_init() {
   // Set MOSI and SCK as outputs
-  SET_OUTPUT(P_MOSI);
-  SET_OUTPUT(P_SCK);
+  SET_OUTPUT(SPI_MOSI);
+  SET_OUTPUT(SPI_SCK);
 
   // Set MISO as input
-  SET_INPUT(P_MISO);
+  SET_INPUT(SPI_MISO);
 
   // Enable SPI, Master, and set clock rate fck/16
   // via the SPR1 and SPR0 flags

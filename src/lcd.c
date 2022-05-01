@@ -1,10 +1,20 @@
 #include <avr/io.h>
 #include <util/delay.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include "pins.h"
 #include "register.h"
 #include "lcd.h"
 
+#define LCD_LEFT_JUSTIFY    0b10000000
+#define LCD_SIGN            0b01000000
+#define LCD_BLANK           0b00100000
+#define LCD_POUND           0b00010000
+#define LCD_ZERO_PADDING    0b00001000
+#define LCD_UPPERCASE       0b00000100
+#define LCD_SPECIFIER       0b00000001
+
+const uint8_t int_nybles = sizeof(int) * 2;
 /*
  * LCD Pulse Enable
  * 
@@ -46,7 +56,7 @@ void lcd_send_nyble (uint8_t data) {
  * Sends one byte of data to the LCD
  */
 void lcd_send_byte (uint8_t data) {
-#ifdef LCD_4BIT
+#ifdef _LCD_4BIT
     lcd_send_nyble(data >> 4);
     lcd_send_nyble(data);
 #else
@@ -77,7 +87,7 @@ void lcd_init () {
     // Set enable pin as output
     SET_OUTPUT(LCD_EN);
     // Set all the data pins as output
-#ifndef LCD_4BIT
+#ifndef _LCD_4BIT
     SET_OUTPUT(LCD_D0);
     SET_OUTPUT(LCD_D1);
     SET_OUTPUT(LCD_D2);
@@ -96,7 +106,7 @@ void lcd_init () {
     _delay_ms(LCD_MIDDLE_DELAY);
     lcd_send_nyble(0x3);
     _delay_us(LCD_FINAL_DELAY);
-#ifdef LCD_4BIT
+#ifdef _LCD_4BIT
     lcd_send_nyble(0x2);
 #else
     lcd_send_nyble(0x3);
@@ -202,7 +212,7 @@ void lcd_putc (char c) {
  * Prints the given string to the
  * current cursor position
  */
-void lcd_print (const char * s) {
+void lcd_print (const char *s) {
     // Set the Register Select pin for
     // writing data to DDRAM
     SET(LCD_RS);
@@ -214,17 +224,106 @@ void lcd_print (const char * s) {
 }
 
 /*
- * LCD Print Float
- * 
- * Prints a given float with given
- * decimal precision to the current
- * cursor position.
+ * LCD Print Unsigned Integer
+ *
+ * Prints given unsigned integer
+ * with the given width
  */
-void lcd_printf (float f) {
-    // Create a buffer to hold the string
-    char buf[10];
-    // Convert the float to a string
-    dtostrf(f,5,2,buf);
-    // Print the string
-    lcd_print(buf);
+void lcd_printu (unsigned int d, uint8_t width) {
+  // Think positively for now
+  char buff[5];
+  uint8_t i;
+  uint8_t length;
+
+  for (i = 5; (i > 0) && d; --i) {
+    buff[i-1] = 0x30 + (d % 10);
+    d /= 10;
+  }
+
+  // Set the Register Select pin for
+  // writing data to DDRAM
+  SET(LCD_RS);
+  for (length = 0; length + 5 - i < width; ++length)
+    lcd_send_byte(' ');
+  // Print the buffer
+  for ( ; i < 5; ++i)
+    lcd_send_byte(buff[i]);
+}
+
+/*
+ * LCD Print Hex
+ *
+ * Prints given integer in
+ * hexadecimal
+ */
+void lcd_printx (unsigned int x, uint8_t width, uint8_t flags) {
+  uint8_t i;
+  uint8_t length;
+
+  // Set the Register Select pin for
+  // writing data to DDRAM
+  SET(LCD_RS);
+  // Ignore leading zeros for now
+  for (i = 0; (i < int_nybles-1) && !(x & 0xF<<(int_nybles-1)*4); ++i) 
+      x <<= 4;
+  
+  // Print the padding
+  for (length = 0; length + int_nybles - i < width; ++length)
+    lcd_send_byte(' ');
+
+  // Print the hex value
+  for ( ; i < int_nybles; ++i) {
+    // Convert the highest nyble to ACII and print
+    lcd_send_byte((uint8_t)((x >> (int_nybles-1) * 4) + 
+                          (((x >> (int_nybles-1) * 4) > 9) ? 
+                          ((flags & LCD_UPPERCASE) ? 0x37 : 0x57) : 0x30)));
+    x <<= 4;
+  }
+}
+
+/*
+ * LCD Print formatted string
+ * 
+ * Prints variables in formatted
+ * string to the screen
+ */
+void lcd_sprintf (const char *format, ...) {
+  va_list ap;
+  uint8_t width;
+  uint8_t flags;
+  
+  va_start(ap, format);
+  for (char *ptr = (char *)format; *ptr != '\0'; ++ptr) {
+    if (*ptr == '%') {
+      flags = 0;
+      width = 0;
+      while (!(flags & LCD_SPECIFIER)) {
+        switch (*(++ptr)) {
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9': width = (width * 10) + (*ptr) - 0x30;
+                    break;
+          case 'u': lcd_printu(va_arg(ap, unsigned int), width);
+                    flags |= LCD_SPECIFIER;
+                    break;
+          case 'X': flags |= LCD_UPPERCASE;
+          case 'x': lcd_printx(va_arg(ap, unsigned int), width, flags);
+                    flags |= LCD_SPECIFIER;
+                    break;
+          default:  lcd_putc(*ptr);
+                    flags |= LCD_SPECIFIER;
+                    break;
+        }
+      }
+    } else
+      lcd_putc(*ptr);
+  }
+  va_end(ap);
 }

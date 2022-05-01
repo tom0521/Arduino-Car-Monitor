@@ -1,6 +1,7 @@
 #ifndef LCD_H
 #define LCD_H
 
+#define LCD_POS(r,c) (LCD_ROW(r) + c)
 #define LCD_ROW(x) (((x % 4) % 2) * 0x40) \
                  + (((x % 4) / 2) * 0x14)
 
@@ -72,6 +73,6 @@ void lcd_cursor_left ();
 void lcd_cursor_down ();
 void lcd_putc (char c);
 void lcd_print (const char * s);
-void lcd_printf (float f);
+void lcd_sprintf (const char *format, ...);
 
 #endif // LCD_H

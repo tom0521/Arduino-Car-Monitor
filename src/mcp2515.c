@@ -14,6 +14,11 @@
  * 
  */
 bool mcp_init (uint8_t baud_prescaler) {
+#ifdef _MCP_SPI
+    // Initialize SPI
+    spi_init();
+#endif
+
     // Set the Chip select HIGH to not send
     // messages when spi is set up
     SET(MCP_CS);
