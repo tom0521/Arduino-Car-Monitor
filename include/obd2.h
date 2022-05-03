@@ -52,15 +52,15 @@
 #define OBD2_DIST_WITH_MIL       0x21
 #define OBD2_FUEL_RAIL_PRESSURE  0x22
 #define OBD2_FUEL_RAIL_GAUGE     0x23
-
+/* ... */
 #define OBD2_FUEL_TANK_LEVEL     0x2F
-
+/* ... */
 #define OBD2_DIST_CODE_CLR       0x31
-
+/* ... */
 #define OBD2_PID_SUPPORT_3       0x40
-
+/* ... */
 #define OBD2_ENGINE_FUEL_RATE    0x5E
-
+/* ... */
 #define OBD2_ODOMETER            0xA6
 
 /* The OBD-II Data Frame */
@@ -74,10 +74,20 @@
 
 /* * * * * * * * * * * * * * * */
 /*                             */
+/*      Type Definitions       */
+/*                             */
+/* * * * * * * * * * * * * * * */
+typedef union {
+  uint32_t bits;
+  float val;
+} obd2_value;
+
+/* * * * * * * * * * * * * * * */
+/*                             */
 /*    Function Definitions     */
 /*                             */
 /* * * * * * * * * * * * * * * */
 bool obd2_init ();
-float obd2_read_pid (uint8_t pid);
+obd2_value obd2_read_pid (uint8_t pid);
 
 #endif // OBD2_H
