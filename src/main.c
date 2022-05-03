@@ -41,21 +41,21 @@ void main() {
   }
 
   support = obd2_read_pid(OBD2_PID_SUPPORT_1).bits;
-  if (support & ((uint32_t)1 << (32 - OBD2_PID_SUPPORT_2))) {
+  if (!(support & ((uint32_t)1 << (32 - OBD2_PID_SUPPORT_2)))) {
     print_error(SUPPORT_ERR & 0x1);
     return;
   }
-  if (support & ((uint32_t)1 << (32 - OBD2_VEHICLE_SPEED))) {
+  if (!(support & ((uint32_t)1 << (32 - OBD2_VEHICLE_SPEED)))) {
     print_error(SUPPORT_ERR & 0x2);
     return;
   }
   support = obd2_read_pid(OBD2_PID_SUPPORT_2).bits;
-  if (support & ((uint32_t)1 << (32 - (OBD2_PID_SUPPORT_3 - OBD2_PID_SUPPORT_2)))) {
+  if (!(support & ((uint32_t)1 << (32 - (OBD2_PID_SUPPORT_3 - OBD2_PID_SUPPORT_2))))) {
     print_error(SUPPORT_ERR & 0x3);
     return;
   }
   support = obd2_read_pid(OBD2_PID_SUPPORT_3).bits;
-  if (support & ((uint32_t)1 << (32 - (OBD2_ENGINE_FUEL_RATE - OBD2_PID_SUPPORT_3)))) {
+  if (!(support & ((uint32_t)1 << (32 - (OBD2_ENGINE_FUEL_RATE - OBD2_PID_SUPPORT_3))))) {
     print_error(SUPPORT_ERR & 0x4);
     return;
   }
