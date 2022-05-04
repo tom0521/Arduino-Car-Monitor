@@ -78,8 +78,8 @@
 /*                             */
 /* * * * * * * * * * * * * * * */
 typedef union {
-  uint32_t bits;
-  float val;
+  uint32_t u32;
+  float f;
 } obd2_value;
 
 /* * * * * * * * * * * * * * * */

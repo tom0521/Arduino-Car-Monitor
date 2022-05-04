@@ -32,7 +32,7 @@ void main() {
   encoder_init();
   lcd_set_cursor(LCD_POS(1,2));
   lcd_sprintf("Starting Up...");
-  _delay_ms(1000);
+  _delay_ms(5000);
   lcd_clear();
 
   if (!obd2_init()) {
@@ -40,32 +40,37 @@ void main() {
     return;
   }
 
-  support = obd2_read_pid(OBD2_PID_SUPPORT_1).bits;
+  support = obd2_read_pid(OBD2_PID_SUPPORT_1).u32;
   if (!(support & ((uint32_t)1 << (32 - OBD2_PID_SUPPORT_2)))) {
-    print_error(SUPPORT_ERR & 0x1);
+    print_error(SUPPORT_ERR | 0x1);
     return;
   }
   if (!(support & ((uint32_t)1 << (32 - OBD2_VEHICLE_SPEED)))) {
-    print_error(SUPPORT_ERR & 0x2);
+    print_error(SUPPORT_ERR | 0x2);
     return;
   }
-  support = obd2_read_pid(OBD2_PID_SUPPORT_2).bits;
+  support = obd2_read_pid(OBD2_PID_SUPPORT_2).u32;
   if (!(support & ((uint32_t)1 << (32 - (OBD2_PID_SUPPORT_3 - OBD2_PID_SUPPORT_2))))) {
-    print_error(SUPPORT_ERR & 0x3);
+    print_error(SUPPORT_ERR | 0x3);
     return;
   }
-  support = obd2_read_pid(OBD2_PID_SUPPORT_3).bits;
+  support = obd2_read_pid(OBD2_PID_SUPPORT_3).u32;
   if (!(support & ((uint32_t)1 << (32 - (OBD2_ENGINE_FUEL_RATE - OBD2_PID_SUPPORT_3))))) {
-    print_error(SUPPORT_ERR & 0x4);
+    print_error(SUPPORT_ERR | 0x4);
     return;
   }
+  
+  lcd_set_cursor(LCD_POS(1,2));
+  lcd_sprintf("All Tests Pass");
+  _delay_ms(2500);
+  lcd_clear();
 
   /* Global interrupts on */
   sei();
 
   for ( ; ; ) {
-    speed = obd2_read_pid(OBD2_VEHICLE_SPEED).val * 0.6213712f;
-    fuel_consumption = obd2_read_pid(OBD2_ENGINE_FUEL_RATE).val * 0.2641729f;
+    speed = obd2_read_pid(OBD2_VEHICLE_SPEED).f * 0.6213712f;
+    fuel_consumption = obd2_read_pid(OBD2_ENGINE_FUEL_RATE).f * 0.2641729f;
     mpg = fuel_consumption ? speed / fuel_consumption : 0.0f; 
     lcd_set_cursor(LCD_POS(1,6));
     lcd_sprintf("%3u mpg", (int) mpg);

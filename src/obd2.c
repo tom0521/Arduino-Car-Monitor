@@ -34,7 +34,7 @@ obd2_value obd2_read_pid (uint8_t pid) {
 
   // Try to send the frame and return the result
   if (!mcp_tx_message(&frame)) {
-    retval.val = -1;
+    retval.f = -1;
     return retval;
   }
 
@@ -42,7 +42,7 @@ obd2_value obd2_read_pid (uint8_t pid) {
     ;
 
   if (!mcp_rx_message(&frame)) {
-    retval.val = -1;
+    retval.f = -1;
     return retval;
   }
 
@@ -51,28 +51,31 @@ obd2_value obd2_read_pid (uint8_t pid) {
     case OBD2_PID_SUPPORT_1:
     case OBD2_PID_SUPPORT_2:
     case OBD2_PID_SUPPORT_3:
-      retval.bits = *((uint32_t *)frame.data + OBD2_FRAME_A); 
+      retval.u32 = frame.data[OBD2_FRAME_A] << 24 +
+                   frame.data[OBD2_FRAME_B] << 16 +
+                   frame.data[OBD2_FRAME_C] << 8  +
+                   frame.data[OBD2_FRAME_D]; 
       break;
     case OBD2_ENGINE_SPEED:
-      retval.val = ((256 * frame.data[OBD2_FRAME_A]) + 
+      retval.f = ((256 * frame.data[OBD2_FRAME_A]) + 
                       frame.data[OBD2_FRAME_B]) / 4.f;
       break;
     case OBD2_VEHICLE_SPEED:
-      retval.val = frame.data[OBD2_FRAME_A] * 0.62137119f;
+      retval.f = frame.data[OBD2_FRAME_A] * 0.62137119f;
       break;
     case OBD2_FUEL_TANK_LEVEL:
-      retval.val = (100 / 255.f) * frame.data[OBD2_FRAME_A];
+      retval.f = (100 / 255.f) * frame.data[OBD2_FRAME_A];
       break;
     case OBD2_DIST_CODE_CLR:
-      retval.val = ((frame.data[OBD2_FRAME_A] << 8) + 
+      retval.f = ((frame.data[OBD2_FRAME_A] << 8) + 
                       frame.data[OBD2_FRAME_B]) * 0.62137119f;
       break;
     case OBD2_ENGINE_FUEL_RATE:
-      retval.val = ((256 * frame.data[OBD2_FRAME_A]) + 
+      retval.f = ((256 * frame.data[OBD2_FRAME_A]) + 
                       frame.data[OBD2_FRAME_B]) / 20.f;
       break;
     default: 
-      retval.val = -1;
+      retval.f = -1;
       break;
   }
   return retval;
